@@ -9,12 +9,22 @@ export function createCodexEventParser(): (ev: unknown) => AdapterStreamChunk[] 
     const ev = raw as Record<string, any>;
     const chunks: AdapterStreamChunk[] = [];
 
-    if (ev.type === 'thread.started') {
+    if (ev.type === 'thread.started' || ev.type === 'turn.started') {
       chunks.push({
         kind: 'init',
         model: typeof ev.model === 'string' ? ev.model : undefined,
       });
       return chunks;
+    }
+
+    if (ev.type === 'error' || ev.type === 'turn.failed') {
+      const msg =
+        typeof ev.message === 'string'
+          ? ev.message
+          : typeof ev.error?.message === 'string'
+            ? ev.error.message
+            : 'Codex execution failed';
+      throw new Error(msg);
     }
 
     if (
@@ -79,6 +89,8 @@ export function createCodexAdapter(binaryPath = 'codex'): SpeedtestAdapter {
             '--skip-git-repo-check',
             '-s',
             'read-only',
+            '-c',
+            'model_reasoning_effort="low"',
             '-C',
             effectiveCwd,
           ];

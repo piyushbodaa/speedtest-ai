@@ -63,6 +63,8 @@ export interface GaugeTick {
   ttftMs?: number;
   jitterMs?: number;
   previewText: string;
+  model?: string;
+  statusHint?: string;
 }
 
 export interface PhaseResult {

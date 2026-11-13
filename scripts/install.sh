@@ -3,7 +3,7 @@ set -eu
 
 BASE_URL="${SPEEDTEST_AI_BASE_URL:-https://krutrimmulyankan.in/speedtest}"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
-EXPECTED_SHA256="378b6cd27b5b1893d26b11be32168c43b1c50ff79af5c787ec543b8ab5d66155"
+EXPECTED_SHA256="e4aa308e7f5717c1ba7a0912c8608c26a65b18c00b74aefa4e580539649dd639"
 
 # Ensure mise-managed Node is discoverable in non-interactive shells (e.g. Omarchy Linux)
 if ! command -v node >/dev/null 2>&1; then
@@ -76,12 +76,25 @@ ln -sf "speedtest-ai" "$INSTALL_DIR/aispeed"
 
 echo ""
 echo "Installed speedtest-ai (and aispeed alias) to $INSTALL_DIR"
+
+if [ "${SPEEDTEST_NO_AUTO_RUN:-0}" != "1" ]; then
+  echo ""
+  echo "Running live speedtest across all installed AI CLIs on your device..."
+  echo ""
+  if [ -t 1 ] && [ -r /dev/tty ]; then
+    "$INSTALL_DIR/speedtest-ai" all </dev/tty || true
+  else
+    "$INSTALL_DIR/speedtest-ai" all || true
+  fi
+fi
+
 echo ""
-echo "Quick start:"
+echo "Useful commands:"
+echo "  speedtest-ai all          # Benchmark every installed CLI & compare"
 echo "  speedtest-ai              # Interactive target picker"
 echo "  speedtest-ai detect       # Check installed AI harnesses & APIs"
 echo "  speedtest-ai demo         # Zero-cost simulated speedometer"
-echo "  speedtest-ai run -t claude"
+echo "  speedtest-ai run -t agy"
 
 case ":$PATH:" in
   *":$INSTALL_DIR:"*) ;;

@@ -12,16 +12,18 @@ import {
   renderDetectTable,
   renderHistoryTable,
 } from './tui/dashboard.js';
+import { c } from './tui/ansi.js';
 import { promptInteractiveTarget } from './tui/prompt.js';
 import type { BenchmarkMode, SpeedtestResult } from './types.js';
 
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 
 function printHelp(): void {
   const help = `
 speedtest-ai v${VERSION} — Live TPS & latency speedtest for AI models and agent harnesses
 
 USAGE:
+  speedtest-ai all [flags]                      Benchmark ALL installed CLIs & compare
   speedtest-ai                                  Interactive target picker (TTY)
   speedtest-ai run -t <target[:model]> [flags]  Run speedtest on a harness or model
   speedtest-ai demo [flags]                     Zero-setup simulated speedometer
@@ -36,10 +38,12 @@ TARGETS (-t, --target):
   Simulated:   demo:frontier | demo:flash | demo:reasoning | demo:local
 
 FLAGS:
+  -a, --all               Benchmark all detected installed CLIs (shortcut for "all")
   -t, --target <spec>     Target or target:model (e.g. claude:sonnet, ollama:llama3.2)
   -m, --model <model>     Override model name
       --profile <name>    Demo profile (frontier | flash | reasoning | local)
       --quick             Single-stage fast test (Download TPS + TTFT, ~5-8s)
+      --standard          All 4 stages (Ping + Download + Upload + Agent Loop)
       --full              Extended 4-stage benchmark with larger payloads
       --cmd <template>    Shell command for -t cmd (supports {prompt} or $SPEEDTEST_PROMPT)
       --base-url <url>    Custom OpenAI-compatible or provider base URL
@@ -49,7 +53,7 @@ FLAGS:
       --jsonl             Stream live SpeedtestEvent NDJSON lines (Desktop/GUI bridge)
       --plain             Disable live TUI gauge animation
       --no-history        Do not save this run to local history
-      --timeout <sec>     Per-phase timeout in seconds (default: 90)
+      --timeout <sec>     Per-phase timeout in seconds (default: 90; 45 for "all")
       --limit <n>         Number of history entries to display (default: 15)
       --clear             Clear saved history
   -h, --help              Show help
@@ -137,6 +141,83 @@ async function runSingleTarget(opts: {
   }
 }
 
+async function runAllInstalledTargets(opts: {
+  mode: BenchmarkMode;
+  modelOverride?: string;
+  cmd?: string;
+  baseUrl?: string;
+  apiKey?: string;
+  outputMode: 'tui' | 'plain' | 'json' | 'jsonl';
+  noHistory: boolean;
+  timeoutMs: number;
+}): Promise<void> {
+  const targets = await detectTargets();
+  if (opts.outputMode !== 'json' && opts.outputMode !== 'jsonl') {
+    process.stdout.write(renderDetectTable(targets) + '\n');
+  }
+
+  let ready = targets.filter((t) => t.available && t.category !== 'demo');
+  if (ready.length === 0) {
+    const demo = targets.find((t) => t.id === 'demo');
+    ready = demo ? [demo] : [];
+  }
+
+  const results: SpeedtestResult[] = [];
+  const failures: Array<{ targetId: string; targetName: string; error: string }> = [];
+
+  for (let i = 0; i < ready.length; i++) {
+    const t = ready[i];
+    if (opts.outputMode !== 'json' && opts.outputMode !== 'jsonl') {
+      process.stdout.write(
+        `\n${c.bold(c.brightCyan(`▶ [${i + 1}/${ready.length}]`))} ${c.bold(`Benchmarking ${t.name}`)} ${c.dim(`(${t.id}${t.defaultModel && t.defaultModel !== 'default' ? `:${t.defaultModel}` : ''}) [${opts.mode}]`)}\n`
+      );
+    }
+
+    try {
+      const res = await runSingleTarget({
+        targetSpec: t.id,
+        model: opts.modelOverride || t.defaultModel,
+        mode: opts.mode,
+        cmd: opts.cmd,
+        baseUrl: opts.baseUrl,
+        apiKey: opts.apiKey,
+        outputMode: opts.outputMode === 'json' ? 'silent' : opts.outputMode,
+        noHistory: opts.noHistory,
+        timeoutMs: opts.timeoutMs,
+      });
+      results.push(res);
+    } catch (err) {
+      const rawMsg = err instanceof Error ? err.message : String(err);
+      if (rawMsg.toLowerCase().includes('interrupted by user')) {
+        throw err;
+      }
+      const cleanMsg = rawMsg.split(/\r?\n/)[0].trim();
+      failures.push({ targetId: t.id, targetName: t.name, error: cleanMsg });
+      if (opts.outputMode !== 'json' && opts.outputMode !== 'jsonl') {
+        process.stdout.write(`  ${c.yellow('⚠')} Skipped ${t.name}: ${c.gray(cleanMsg)}\n`);
+      }
+    }
+  }
+
+  const sorted = [...results].sort(
+    (a, b) => b.summary.downloadDecodeTps - a.summary.downloadDecodeTps
+  );
+
+  if (opts.outputMode === 'json') {
+    process.stdout.write(JSON.stringify({ results: sorted, skipped: failures }, null, 2) + '\n');
+  } else if (opts.outputMode !== 'jsonl') {
+    if (sorted.length > 0) {
+      process.stdout.write('\n' + renderCompareTable(sorted, failures) + '\n');
+    } else {
+      process.stdout.write(c.bold(c.yellow('\nNo installed CLIs completed a benchmark:\n')));
+      for (const f of failures) {
+        process.stdout.write(`  ⚠  ${f.targetId} (${f.targetName}): ${f.error}\n`);
+      }
+      process.exitCode = 1;
+    }
+  }
+}
+
 export async function main(rawArgv = process.argv.slice(2)): Promise<void> {
   const normalizedArgv = normalizeOptionalCardFlag(rawArgv);
 
@@ -144,10 +225,12 @@ export async function main(rawArgv = process.argv.slice(2)): Promise<void> {
     args: normalizedArgv,
     allowPositionals: true,
     options: {
+      all: { type: 'boolean', short: 'a', default: false },
       target: { type: 'string', short: 't' },
       model: { type: 'string', short: 'm' },
       profile: { type: 'string' },
       quick: { type: 'boolean', default: false },
+      standard: { type: 'boolean', default: false },
       full: { type: 'boolean', default: false },
       cmd: { type: 'string' },
       'base-url': { type: 'string' },
@@ -186,8 +269,26 @@ export async function main(rawArgv = process.argv.slice(2)): Promise<void> {
         : 'tui';
 
   const mode: BenchmarkMode = values.quick ? 'quick' : values.full ? 'full' : 'standard';
-  const timeoutSec = values.timeout ? Number(values.timeout) : 90;
-  const timeoutMs = Number.isFinite(timeoutSec) && timeoutSec > 0 ? timeoutSec * 1000 : 90_000;
+  const timeoutSec = values.timeout ? Number(values.timeout) : undefined;
+  const timeoutMs =
+    timeoutSec && Number.isFinite(timeoutSec) && timeoutSec > 0 ? timeoutSec * 1000 : 90_000;
+
+  if (subcommand === 'all' || values.all) {
+    const allMode: BenchmarkMode = values.full ? 'full' : values.standard ? 'standard' : 'quick';
+    const allTimeoutMs =
+      timeoutSec && Number.isFinite(timeoutSec) && timeoutSec > 0 ? timeoutSec * 1000 : 45_000;
+    await runAllInstalledTargets({
+      mode: allMode,
+      modelOverride: values.model,
+      cmd: values.cmd,
+      baseUrl: values['base-url'],
+      apiKey: values['api-key'],
+      outputMode,
+      noHistory: Boolean(values['no-history']),
+      timeoutMs: allTimeoutMs,
+    });
+    return;
+  }
 
   if (subcommand === 'detect') {
     const targets = await detectTargets();
@@ -276,6 +377,22 @@ export async function main(rawArgv = process.argv.slice(2)): Promise<void> {
     if (!targetSpec) {
       throw new Error('Specify a target with -t <target[:model]> (or run "speedtest-ai detect").');
     }
+    if (targetSpec.toLowerCase() === 'all') {
+      const allMode: BenchmarkMode = values.full ? 'full' : values.standard ? 'standard' : 'quick';
+      const allTimeoutMs =
+        timeoutSec && Number.isFinite(timeoutSec) && timeoutSec > 0 ? timeoutSec * 1000 : 45_000;
+      await runAllInstalledTargets({
+        mode: allMode,
+        modelOverride: values.model,
+        cmd: values.cmd,
+        baseUrl: values['base-url'],
+        apiKey: values['api-key'],
+        outputMode,
+        noHistory: Boolean(values['no-history']),
+        timeoutMs: allTimeoutMs,
+      });
+      return;
+    }
     await runSingleTarget({
       targetSpec,
       model: values.model,
@@ -300,6 +417,15 @@ export async function main(rawArgv = process.argv.slice(2)): Promise<void> {
     const targets = await detectTargets();
     const selection = await promptInteractiveTarget(targets);
     if (!selection) {
+      return;
+    }
+    if (selection.targetId === 'all') {
+      await runAllInstalledTargets({
+        mode: selection.mode,
+        outputMode: 'tui',
+        noHistory: Boolean(values['no-history']),
+        timeoutMs: timeoutSec && Number.isFinite(timeoutSec) && timeoutSec > 0 ? timeoutSec * 1000 : 45_000,
+      });
       return;
     }
     await runSingleTarget({

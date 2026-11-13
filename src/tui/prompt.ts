@@ -8,14 +8,28 @@ export interface InteractiveSelection {
   mode: BenchmarkMode;
 }
 
-const MODES: BenchmarkMode[] = ['standard', 'quick', 'full'];
+const MODES: BenchmarkMode[] = ['quick', 'standard', 'full'];
 
 export async function promptInteractiveTarget(
   targets: TargetInfo[]
 ): Promise<InteractiveSelection | null> {
   const ready = targets.filter((t) => t.available);
+  const readyRealTargets = ready.filter((t) => t.category !== 'demo');
   const unavailable = targets.filter((t) => !t.available);
-  const ordered = [...ready, ...unavailable];
+  const allOption: TargetInfo[] =
+    readyRealTargets.length > 0
+      ? [
+          {
+            id: 'all',
+            name: 'ALL Ready CLIs',
+            category: 'harness',
+            available: true,
+            supportsToolLoop: true,
+            reason: `Benchmark all ${readyRealTargets.length} detected (${readyRealTargets.map((t) => t.id).join(', ')})`,
+          },
+        ]
+      : [];
+  const ordered = [...allOption, ...ready, ...unavailable];
 
   let selectedIdx = 0;
   let modeIdx = 0;

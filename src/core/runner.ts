@@ -199,8 +199,9 @@ async function* runSinglePhase(options: {
         const { chunk, atMs } = item;
         latestTickAt = atMs;
         if (chunk.kind === 'init') {
-          tracker.markInit(atMs);
+          tracker.markInit(atMs, chunk.model);
           if (chunk.model) reported.model = chunk.model;
+          shouldEmitTick = true;
         } else if (chunk.kind === 'text' && chunk.text) {
           tracker.recordDelta(chunk.text, 'text', atMs);
           shouldEmitTick = true;
@@ -211,7 +212,10 @@ async function* runSinglePhase(options: {
           tracker.recordToolCall();
           shouldEmitTick = true;
         } else if (chunk.kind === 'usage') {
-          if (chunk.model) reported.model = chunk.model;
+          if (chunk.model) {
+            reported.model = chunk.model;
+            tracker.setModel(chunk.model);
+          }
           if (typeof chunk.inputTokens === 'number') reported.inputTokens = chunk.inputTokens;
           if (typeof chunk.cachedInputTokens === 'number') {
             reported.cachedInputTokens = chunk.cachedInputTokens;
@@ -331,8 +335,8 @@ export async function* runSpeedtest(
   }
 
   const download = phaseResults.download;
-  if (!download) {
-    throw new Error('Download phase did not produce a result.');
+  if (!download || download.outputTokens <= 0) {
+    throw new Error(`${adapter.name} produced 0 output tokens.`);
   }
 
   const ping = phaseResults.ping;

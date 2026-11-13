@@ -216,6 +216,9 @@ export async function consumeSpeedtestEvents(
       } else if (ev.type === 'gauge:tick' && state) {
         state.tick = ev.tick;
         state.frameCounter += 1;
+        if (ev.tick.model && ev.tick.model !== 'default') {
+          state.model = ev.tick.model;
+        }
         if (ev.tick.phase === 'download' && ev.tick.currentTps > 0) {
           state.tpsHistory.push(ev.tick.currentTps);
           if (state.tpsHistory.length > 60) {
@@ -268,7 +271,10 @@ export function renderDetectTable(targets: TargetInfo[]): string {
   return lines.join('\n');
 }
 
-export function renderCompareTable(results: SpeedtestResult[]): string {
+export function renderCompareTable(
+  results: SpeedtestResult[],
+  failures?: Array<{ targetId: string; targetName: string; error: string }>
+): string {
   const sorted = [...results].sort(
     (a, b) => b.summary.downloadDecodeTps - a.summary.downloadDecodeTps
   );
@@ -280,15 +286,25 @@ export function renderCompareTable(results: SpeedtestResult[]): string {
 
   sorted.forEach((r, idx) => {
     const rank = `#${idx + 1}`.padEnd(4);
-    const label = `${r.targetId}:${r.model}`.slice(0, 24).padEnd(25);
+    const label = `${r.targetId}:${r.model}`.slice(0, 26).padEnd(27);
     const tpsStr = formatTps(r.summary.downloadDecodeTps).padEnd(11);
-    const pingStr = formatMs(r.summary.pingMs).padEnd(9);
-    const barLen = Math.max(1, Math.round((r.summary.downloadDecodeTps / maxTps) * 24));
+    const e2eStr = formatTps(r.summary.downloadE2eTps).padEnd(10);
+    const pingStr = formatMs(r.summary.pingMs).padEnd(8);
+    const tokStr = `${r.summary.downloadOutputTokens} tok`.padEnd(8);
+    const barLen = Math.max(1, Math.round((r.summary.downloadDecodeTps / maxTps) * 20));
     const bar = colorByTps(r.summary.downloadDecodeTps, '█'.repeat(barLen));
     lines.push(
-      `  ${c.bold(rank)} ${c.white(label)} ${colorByTps(r.summary.downloadDecodeTps, tpsStr)} ${c.dim(`TTFT ${pingStr}`)} ${bar} ${colorGrade(r.summary.grade)}`
+      `  ${c.bold(rank)} ${c.white(label)} ${colorByTps(r.summary.downloadDecodeTps, tpsStr)} ${c.dim(`E2E ${e2eStr} TTFT ${pingStr} ${tokStr}`)} ${bar} ${colorGrade(r.summary.grade)}`
     );
   });
+
+  if (failures && failures.length > 0) {
+    lines.push('');
+    lines.push(c.bold(c.yellow('Skipped / Unavailable CLIs:')));
+    for (const f of failures) {
+      lines.push(`  ${c.yellow('⚠')}  ${c.bold(f.targetId.padEnd(10))} ${c.dim(`(${f.targetName})`)} ${c.gray(f.error)}`);
+    }
+  }
 
   return lines.join('\n');
 }

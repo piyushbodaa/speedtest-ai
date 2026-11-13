@@ -92,9 +92,9 @@ interface HarnessDef {
 const HARNESS_DEFS: HarnessDef[] = [
   { id: 'claude', name: 'Claude Code', cmd: 'claude', defaultModel: 'default' },
   { id: 'codex', name: 'OpenAI Codex CLI', cmd: 'codex', defaultModel: 'default' },
-  { id: 'agy', name: 'Antigravity CLI', cmd: 'agy', defaultModel: 'default' },
+  { id: 'agy', name: 'Antigravity CLI', cmd: 'agy', defaultModel: 'gemini-4-carbon-low' },
   { id: 'grok', name: 'Grok CLI', cmd: 'grok', defaultModel: 'default' },
-  { id: 'muse', name: 'Muse Code CLI', cmd: 'muse', defaultModel: 'default' },
+  { id: 'muse', name: 'Muse Code CLI', cmd: 'muse', defaultModel: 'muse-spark-1.3' },
 ];
 
 async function probeOllama(): Promise<TargetInfo> {

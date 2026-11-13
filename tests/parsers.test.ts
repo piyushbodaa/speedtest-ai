@@ -105,6 +105,96 @@ describe('Harness NDJSON parsers', () => {
       expect(out.find((c) => c.kind === 'usage')?.outputTokens).toBe(5);
     }
   });
+
+  it('agy parser handles real stream-json event & step_update schemas', () => {
+    const parse = createAgyEventParser();
+    const events = [
+      { event: 'init', init: { model: 'gemini-4-carbon-low' } },
+      { event: 'step_update', step_update: { step_type: 'user_input', state: 'DONE' } },
+      { event: 'step_update', step_update: { step_type: 'agent_response', state: 'ACTIVE', text_delta: 'Speed ' } },
+      { event: 'step_update', step_update: { step_type: 'agent_response', state: 'DONE', text_delta: 'test' } },
+      {
+        event: 'result',
+        result: {
+          status: 'SUCCESS',
+          duration_seconds: 1.5,
+          response: 'Speed test',
+          usage: { input_tokens: 100, cache_read_tokens: 20, output_tokens: 12 },
+        },
+      },
+    ];
+    const out = events.flatMap(parse);
+    expect(out.find((c) => c.kind === 'init')?.model).toBe('gemini-4-carbon-low');
+    expect(out.filter((c) => c.kind === 'text').map((c) => c.text).join('')).toBe('Speed test');
+    expect(out.find((c) => c.kind === 'usage')).toMatchObject({
+      inputTokens: 120,
+      cachedInputTokens: 20,
+      outputTokens: 12,
+      apiDurationMs: 1500,
+    });
+  });
+
+  it('grok parser handles streaming-messages-json and direct text events', () => {
+    const parse1 = createGrokEventParser();
+    const out1 = [
+      { type: 'stream_event', event: { type: 'message_start', message: { model: 'grok-4.7' } } },
+      { type: 'stream_event', event: { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Fast ' } } },
+      { type: 'stream_event', event: { type: 'message_delta', usage: { input_tokens: 50, cache_read_input_tokens: 10, output_tokens: 5 } } },
+    ].flatMap(parse1);
+    expect(out1.find((c) => c.kind === 'init')?.model).toBe('grok-4.7');
+    expect(out1.find((c) => c.kind === 'text')?.text).toBe('Fast ');
+    expect(out1.find((c) => c.kind === 'usage')).toMatchObject({ inputTokens: 60, outputTokens: 5 });
+
+    const parse2 = createGrokEventParser();
+    const out2 = [
+      { type: 'thought', data: 'thinking ' },
+      { type: 'text', data: 'answer' },
+    ].flatMap(parse2);
+    expect(out2.find((c) => c.kind === 'thinking')?.text).toBe('thinking ');
+    expect(out2.find((c) => c.kind === 'text')?.text).toBe('answer');
+  });
+
+  it('muse parser handles MSP run.model.configured and run.output.delta schemas', () => {
+    const parse = createMuseEventParser();
+    const events = [
+      {
+        schema_version: 1,
+        payload_type: 'run.model.configured',
+        payload: { model_id: 'muse-spark-1.3', display_label: 'muse-spark-1.3' },
+      },
+      {
+        schema_version: 1,
+        payload_type: 'run.output.delta',
+        payload: { text: 'Hello ' },
+      },
+      {
+        schema_version: 1,
+        payload_type: 'run.output.delta',
+        payload: { text: 'Muse' },
+      },
+    ];
+    const out = events.flatMap(parse);
+    expect(out.find((c) => c.kind === 'init')?.model).toBe('muse-spark-1.3');
+    expect(out.filter((c) => c.kind === 'text').map((c) => c.text).join('')).toBe('Hello Muse');
+  });
+
+  it('claude parser rejects rate-limit and synthetic error events instead of counting error text as TPS', () => {
+    const parseRate = createClaudeEventParser();
+    expect(() =>
+      parseRate({
+        type: 'rate_limit_event',
+        rate_limit_info: { status: 'rejected', rateLimitType: 'five_hour', resetsAt: 1794586200 },
+      })
+    ).toThrow(/Rate-limited/);
+
+    const parseSyn = createClaudeEventParser();
+    expect(() =>
+      parseSyn({
+        type: 'assistant',
+        message: { model: '<synthetic>', content: [{ type: 'text', text: "You've hit your limit" }] },
+      })
+    ).toThrow(/hit your limit/);
+  });
 });
 
 describe('Provider & stream parsers', () => {

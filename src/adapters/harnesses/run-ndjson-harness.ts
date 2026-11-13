@@ -31,9 +31,21 @@ export async function* runNdjsonHarness(options: {
           }
         }
         const code = await proc.waitForExit();
-        if (code !== 0 && !emittedText && !options.req.signal.aborted) {
+        if (!emittedText) {
           const tail = proc.getStderrTail();
-          throw new Error(`${options.label} exited with code ${code}${tail ? `: ${tail}` : ''}`);
+          const tailLine = tail ? tail.split('\n').slice(-2).join(' | ').trim() : '';
+          if (options.req.signal.aborted) {
+            const reason =
+              options.req.signal.reason instanceof Error
+                ? options.req.signal.reason.message
+                : undefined;
+            throw new Error(
+              `${options.label} timed out before emitting tokens${tailLine ? `: ${tailLine}` : reason ? ` (${reason})` : ''}`
+            );
+          }
+          throw new Error(
+            `${options.label} exited (code ${code ?? 'killed'}) without emitting tokens${tailLine ? `: ${tailLine}` : ''}`
+          );
         }
       } finally {
         proc.cleanup();

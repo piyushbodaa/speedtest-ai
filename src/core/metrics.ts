@@ -39,6 +39,7 @@ export class RollingSpeedTracker {
   initMs?: number;
   firstTokenMs?: number;
   lastTokenMs?: number;
+  detectedModel?: string;
 
   private samples: TokenSample[] = [];
   private chunkTimestampsMs: number[] = [];
@@ -61,9 +62,18 @@ export class RollingSpeedTracker {
     this.requestStartMs = requestStartMs;
   }
 
-  markInit(atMs: number): void {
+  markInit(atMs: number, model?: string): void {
     if (this.initMs === undefined) {
       this.initMs = atMs;
+    }
+    if (model) {
+      this.detectedModel = model;
+    }
+  }
+
+  setModel(model?: string): void {
+    if (model) {
+      this.detectedModel = model;
     }
   }
 
@@ -210,6 +220,14 @@ export class RollingSpeedTracker {
     const { jitterMs } = this.computeJitterAndItl();
     const ttftMs =
       this.firstTokenMs !== undefined ? Math.max(1, Math.round(this.firstTokenMs - this.requestStartMs)) : undefined;
+    const elapsedSec = ((nowMs - this.requestStartMs) / 1000).toFixed(1);
+    let statusHint: string | undefined;
+    if (this.firstTokenMs === undefined) {
+      statusHint =
+        this.initMs !== undefined
+          ? `Connected${this.detectedModel ? ` (${this.detectedModel})` : ''} · model reasoning / waiting for first token... (${elapsedSec}s)`
+          : `Booting CLI harness... (${elapsedSec}s)`;
+    }
 
     return {
       phase: this.phase,
@@ -221,6 +239,8 @@ export class RollingSpeedTracker {
       ttftMs,
       jitterMs: this.chunkCount >= 3 ? jitterMs : undefined,
       previewText: sanitizePreviewText(this.previewBuffer),
+      model: this.detectedModel,
+      statusHint,
     };
   }
 
@@ -262,7 +282,16 @@ export class RollingSpeedTracker {
       decodeTps = decodeTokens / ((this.lastTokenMs - this.firstTokenMs) / 1000);
       isBuffered = false;
     } else {
-      decodeTps = outputTokens / Math.max(0.05, durationMs / 1000);
+      if (
+        outputTokens > 0 &&
+        this.lastTokenMs !== undefined &&
+        this.initMs !== undefined &&
+        this.lastTokenMs > this.initMs + 50
+      ) {
+        decodeTps = outputTokens / ((this.lastTokenMs - this.initMs) / 1000);
+      } else {
+        decodeTps = outputTokens / Math.max(0.05, durationMs / 1000);
+      }
       isBuffered = true;
     }
 
@@ -287,7 +316,7 @@ export class RollingSpeedTracker {
     }
 
     const roundedDecode = Math.round(decodeTps * 10) / 10;
-    const finalPeak = Math.max(this.peakTps, roundedDecode);
+    const finalPeak = isBuffered ? roundedDecode : Math.max(this.peakTps, roundedDecode);
 
     return {
       phase: this.phase,

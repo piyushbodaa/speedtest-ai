@@ -43,7 +43,23 @@ export function createClaudeEventParser(): (ev: unknown) => AdapterStreamChunk[]
       return chunks;
     }
 
+    if (ev.type === 'rate_limit_event' && ev.rate_limit_info?.status === 'rejected') {
+      const resetsAt =
+        typeof ev.rate_limit_info.resetsAt === 'number'
+          ? `resets ${new Date(ev.rate_limit_info.resetsAt * 1000).toISOString().slice(11, 16)} UTC`
+          : 'resets soon';
+      const limitType = ev.rate_limit_info.rateLimitType || 'quota';
+      throw new Error(`Rate-limited (${limitType} limit; ${resetsAt})`);
+    }
+
     if (ev.type === 'assistant' && ev.message && Array.isArray(ev.message.content)) {
+      if (ev.message.model === '<synthetic>') {
+        const syntheticText = ev.message.content
+          .map((b: any) => (b?.type === 'text' && typeof b.text === 'string' ? b.text : ''))
+          .join(' ')
+          .trim();
+        throw new Error(`Claude Code: ${syntheticText || 'synthetic error response'}`);
+      }
       if (!sawStreamDelta) {
         for (const block of ev.message.content) {
           if (block?.type === 'text' && typeof block.text === 'string' && block.text.length > 0) {
@@ -58,6 +74,11 @@ export function createClaudeEventParser(): (ev: unknown) => AdapterStreamChunk[]
     }
 
     if (ev.type === 'result') {
+      if (ev.is_error === true) {
+        throw new Error(
+          typeof ev.result === 'string' && ev.result ? ev.result : 'Claude Code returned an error'
+        );
+      }
       const usage = ev.usage as Record<string, any> | undefined;
       const baseIn = typeof usage?.input_tokens === 'number' ? usage.input_tokens : 0;
       const cacheRead = typeof usage?.cache_read_input_tokens === 'number' ? usage.cache_read_input_tokens : 0;
@@ -102,6 +123,8 @@ export function createClaudeAdapter(binaryPath = 'claude'): SpeedtestAdapter {
             '--include-partial-messages',
             '--no-session-persistence',
             '--disable-slash-commands',
+            '--effort',
+            'low',
           ];
           if (req.enableReadTool) {
             args.push('--tools', 'Read', '--allowedTools', 'Read');

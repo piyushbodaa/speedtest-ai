@@ -137,7 +137,9 @@ export function renderDashboardFrame(state: LiveDashboardState, boxWidth = 68): 
 
   const streamText = state.tick?.previewText
     ? `${c.dim('Stream:')} ${c.gray(state.tick.previewText)}`
-    : `${c.dim('Stream:')} ${c.gray('waiting for first token...')}`;
+    : state.tick?.statusHint
+      ? `${c.dim('Status:')} ${c.gray(state.tick.statusHint)}`
+      : `${c.dim('Stream:')} ${c.gray('waiting for first token...')}`;
 
   return [
     top,
