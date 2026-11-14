@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import {
   explainAllSkips,
@@ -306,13 +307,19 @@ async function saveCard(cardPath: string, result: SpeedtestResult, announce: boo
   }
 }
 
+function homeRelative(file: string): string {
+  const home = os.homedir();
+  return home && file.startsWith(home + path.sep) ? `~${file.slice(home.length)}` : file;
+}
+
 /** Saves the shareable image of a finished run and says where it is. Never fails the run. */
 function offerShareCard(results: SpeedtestResult[], run: RunOptions): void {
   if (run.noCard || results.length === 0 || !isHumanOutput(run.output)) return;
   try {
     const saved = saveShareCard(renderLeaderboardSvg(results, { version: `speedtest v${VERSION}` }));
-    out(`\n${c.dim('Share it:')} ${saved.pngPath ?? saved.svgPath}\n`);
-    out(`${c.dim(`Copy the image to your clipboard with: ${commandName()} share`)}\n`);
+    // The path gets a line to itself: it cannot be shortened, and nothing else should wrap with it.
+    out(`\n${c.dim(`Result card saved. Copy it to your clipboard with: ${commandName()} share`)}\n`);
+    out(`${homeRelative(saved.pngPath ?? saved.svgPath)}\n`);
   } catch {
     // A card is a convenience; a read-only home directory must not turn a good run into an error.
   }

@@ -179,7 +179,7 @@ describe.concurrent('single runs', () => {
   });
 
   it('keeps plain output within 80 columns and shows the caveats', { timeout: 30_000 }, async () => {
-    const run = await cli(['demo', '--profile', 'buffered', '--quick', '--plain', '--no-history']);
+    const run = await cli(['demo', '--profile', 'buffered', '--quick', '--plain', '--no-history', '--no-card']);
     expect(run.code).toBe(0);
     for (const line of run.stdout.split('\n')) expect(displayWidth(line)).toBeLessThanOrEqual(80);
     expect(run.stdout).toContain('n/a (buffered)');
@@ -276,7 +276,7 @@ describe.concurrent('compare', () => {
   it('continues past a failing target: exit 0, leaderboard plus failed list', { timeout: 40_000 }, async () => {
     const args = ['compare', '-t', 'cmd,demo:frontier', '--cmd', 'echo boom >&2; exit 3 #', '--quick', '--no-history'];
 
-    const plain = await cli([...args, '--plain']);
+    const plain = await cli([...args, '--plain', '--no-card']);
     expect(plain.code).toBe(0);
     expect(plain.stdout).toContain('[1/2]');
     expect(plain.stdout).toContain('✗ failed: custom command failed (exit code 3)');
@@ -349,6 +349,22 @@ describe.concurrent('argument validation', () => {
       expect(run.stderr, args.join(' ')).toContain(message);
       expect(run.stderr).toContain('--help');
     });
+  });
+
+  it('saves a result card after a run and says where, unless --no-card', { timeout: 30_000 }, async () => {
+    const home = await makeTempDir('speedtest-e2e-card-');
+    const run = await cli(['demo', '--quick', '--plain', '--no-history'], { home });
+    expect(run.code).toBe(0);
+    expect(run.stdout).toContain('Result card saved');
+    expect(run.stdout).toMatch(/speedtest-\d{8}-\d{4}\.(png|svg)/);
+    const cards = await readdir(path.join(home, 'cards'));
+    expect(cards).toContain('latest.svg');
+
+    const quiet = await cli(['demo', '--quick', '--plain', '--no-history', '--no-card'], { home: await makeTempDir('speedtest-e2e-nocard-') });
+    expect(quiet.stdout).not.toContain('Result card saved');
+    // Machine-readable output never gets a card or a line about one.
+    const json = await cli(['demo', '--quick', '--json', '--no-history'], { home: await makeTempDir('speedtest-e2e-jsoncard-') });
+    expect(() => JSON.parse(json.stdout)).not.toThrow();
   });
 
   it.skipIf(process.platform === 'win32')('tests everything with no arguments, and one agent when it is named', { timeout: 30_000 }, async () => {
@@ -560,7 +576,7 @@ process.exit(1);
     if (localRuntimeRunning) return ctx.skip();
     const dir = await fakeBin({ grok: true, agy: true });
 
-    const plain = await cli(['all', '--plain', '--no-history'], { env: { PATH: dir } });
+    const plain = await cli(['all', '--plain', '--no-history', '--no-card'], { env: { PATH: dir } });
     expect(plain.code).toBe(0);
     expect(plain.stdout).toContain('Benchmarking 2 targets: agy, grok');
     expect(plain.stdout).toContain('spends model tokens');

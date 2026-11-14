@@ -126,7 +126,8 @@ describe('share card', () => {
 
   it('saves the card for the share command and keeps only recent ones', () => {
     expect(latestShareCard()).toBeUndefined();
-    for (let i = 0; i < 24; i++) saveShareCard(renderLeaderboardSvg(results, { version: 'v' }), new Date(Date.UTC(2026, 0, 1, 0, i)));
+    // Converting to PNG is covered by the end-to-end run; here only the file bookkeeping matters.
+    for (let i = 0; i < 24; i++) saveShareCard(renderLeaderboardSvg(results, { version: 'v' }), new Date(Date.UTC(2026, 0, 1, 0, i)), { png: false });
     const card = latestShareCard();
     expect(card?.svgPath).toBe(path.join(shareCardDir(), 'latest.svg'));
     const stamped = fs.readdirSync(shareCardDir()).filter((f) => /^speedtest-.*\.svg$/.test(f));

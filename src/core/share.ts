@@ -132,7 +132,7 @@ function convertToPng(svgPath: string, pngPath: string): boolean {
 }
 
 /** Writes the card under the results folder, keeping `latest.*` for `speedtest share`. */
-export function saveShareCard(svg: string, now = new Date()): SavedCard {
+export function saveShareCard(svg: string, now = new Date(), options: { png?: boolean } = {}): SavedCard {
   const dir = shareCardDir();
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   const stamp = now.toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 13);
@@ -142,7 +142,7 @@ export function saveShareCard(svg: string, now = new Date()): SavedCard {
   pruneOldCards(dir);
   const pngPath = path.join(dir, `speedtest-${stamp}.png`);
   const latestPng = path.join(dir, 'latest.png');
-  if (convertToPng(svgPath, pngPath)) {
+  if (options.png !== false && convertToPng(svgPath, pngPath)) {
     fs.copyFileSync(pngPath, latestPng);
     return { svgPath, pngPath };
   }
