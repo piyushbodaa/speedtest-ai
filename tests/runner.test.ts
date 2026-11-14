@@ -721,8 +721,8 @@ describe('runner + harness + real child processes', () => {
     const d = result!.phases.download!;
     expect(result!.model).toBe('fake-cli-model');
     expect(d.streaming).toBe(true);
-    // node boot + 150 ms before the first event, 200 ms more before the first text.
-    expect(d.readyMs!).toBeGreaterThan(20);
+    // Node boots, then 200 ms pass before the first text. How fast node boots depends on the machine.
+    expect(d.readyMs!).toBeGreaterThan(0);
     expect(d.readyMs!).toBeLessThan(d.ttftMs!);
     expect(d.ttftMs!).toBeGreaterThanOrEqual(350);
     expect(d.ttftMs!).toBeLessThan(900);

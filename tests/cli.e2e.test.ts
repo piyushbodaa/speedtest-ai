@@ -53,12 +53,10 @@ interface CliOptions {
 /**
  * Node plus the operating system's own tools, which the shell-command tests need. User-level
  * directories (~/.local/bin, mise, Homebrew, npm globals), where agent CLIs get installed, are
- * left out.
+ * left out. Windows is the exception, see below.
  */
-const SAFE_PATH =
-  process.platform === 'win32'
-    ? [path.dirname(process.execPath), path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32')].join(path.delimiter)
-    : [path.dirname(process.execPath), '/usr/bin', '/bin'].join(path.delimiter);
+const SAFE_PATH: string | undefined =
+  process.platform === 'win32' ? undefined : [path.dirname(process.execPath), '/usr/bin', '/bin'].join(path.delimiter);
 
 async function cli(args: string[], options: CliOptions = {}): Promise<CliRun> {
   const home = options.home ?? (await makeTempDir('speedtest-e2e-home-'));
@@ -69,7 +67,8 @@ async function cli(args: string[], options: CliOptions = {}): Promise<CliRun> {
       ...process.env,
       // No test may reach the agent CLIs installed on this machine: they cost real money. Tests
       // that need a CLI put a fake one on a PATH of their own.
-      PATH: SAFE_PATH,
+      // Windows keeps its own PATH: its variable is spelled Path, and overriding it hides cmd.exe.
+      ...(SAFE_PATH ? { PATH: SAFE_PATH } : {}),
       SPEEDTEST_AI_HOME: home,
       SPEEDTEST_AI_DEMO_TIME_SCALE: '0.15',
       NO_COLOR: '1',
