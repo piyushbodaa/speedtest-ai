@@ -52,7 +52,7 @@ describe('spawnIsolated', () => {
     expect(liveChildCount()).toBe(0);
   });
 
-  it('kills the whole process group, including a grandchild that holds stdout', async () => {
+  it.skipIf(process.platform === 'win32')('kills the whole process group, including a grandchild that holds stdout', async () => {
     const { handle, events } = start([{ pid: true }, { grandchild: 60 }, { hang: true }]);
     expect(await waitUntil(() => events.length >= 2, 3000)).toBe(true);
     const childPid = events[0].pid as number;
@@ -72,7 +72,7 @@ describe('spawnIsolated', () => {
     expect(liveChildCount()).toBe(0);
   });
 
-  it('escalates to SIGKILL when the child ignores SIGTERM', async () => {
+  it.skipIf(process.platform === 'win32')('escalates to SIGKILL when the child ignores SIGTERM', async () => {
     const { handle, events } = start([{ ignoreSigterm: true }, { pid: true }, { hang: true }]);
     expect(await waitUntil(() => events.length >= 1, 3000)).toBe(true);
     const pid = events[0].pid as number;
@@ -87,7 +87,7 @@ describe('spawnIsolated', () => {
     expect(isAlive(pid)).toBe(false);
   });
 
-  it('kills on abort', async () => {
+  it.skipIf(process.platform === 'win32')('kills on abort', async () => {
     const controller = new AbortController();
     const { handle, events } = start([{ pid: true }, { hang: true }], { signal: controller.signal });
     expect(await waitUntil(() => events.length >= 1, 3000)).toBe(true);
@@ -97,7 +97,7 @@ describe('spawnIsolated', () => {
     expect(isAlive(events[0].pid)).toBe(false);
   });
 
-  it('killAllChildren({force}) removes every live child immediately', async () => {
+  it.skipIf(process.platform === 'win32')('killAllChildren({force}) removes every live child immediately', async () => {
     const a = start([{ ignoreSigterm: true }, { pid: true }, { hang: true }]);
     const b = start([{ pid: true }, { grandchild: 60 }, { hang: true }]);
     expect(await waitUntil(() => a.events.length >= 1 && b.events.length >= 2, 3000)).toBe(true);

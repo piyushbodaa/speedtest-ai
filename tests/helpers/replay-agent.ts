@@ -97,8 +97,14 @@ export interface ReplayCli {
 
 export function createReplayCli(): ReplayCli {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'speedtest-ai-replay-'));
-  const bin = path.join(dir, 'fake-agent.cjs');
-  fs.writeFileSync(bin, `#!${process.execPath}\n${SCRIPT_SOURCE}`, { mode: 0o755 });
+  const script = path.join(dir, 'fake-agent.cjs');
+  fs.writeFileSync(script, `#!${process.execPath}\n${SCRIPT_SOURCE}`, { mode: 0o755 });
+  let bin = script;
+  if (process.platform === 'win32') {
+    // What npm writes for a global install; the adapter must unwrap it to `node <script>`.
+    bin = path.join(dir, 'fake-agent.cmd');
+    fs.writeFileSync(bin, '@ECHO off\r\nnode "%dp0%\\fake-agent.cjs" %*\r\n');
+  }
   const readLines = (name: string): string[] => {
     try {
       return fs.readFileSync(path.join(dir, name), 'utf8').split('\n').filter(Boolean);

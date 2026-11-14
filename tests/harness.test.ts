@@ -207,7 +207,7 @@ describe('runNdjsonHarness', () => {
     expect(elapsedMs).toBeLessThan(2000);
   });
 
-  it('kills a child that ignores SIGTERM after the terminal event', async () => {
+  it.skipIf(process.platform === 'win32')('kills a child that ignores SIGTERM after the terminal event', async () => {
     let pid = 0;
     const gen = runNdjsonHarness({
       binaryPath: process.execPath,

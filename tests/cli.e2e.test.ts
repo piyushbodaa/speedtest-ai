@@ -176,7 +176,7 @@ describe.concurrent('single runs', () => {
     expect(run.stdout).not.toContain('\x1b[');
   });
 
-  it('benchmarks a streaming shell command with -t cmd', { timeout: 30_000 }, async () => {
+  it.skipIf(process.platform === 'win32')('benchmarks a streaming shell command with -t cmd', { timeout: 30_000 }, async () => {
     const dir = await makeTempDir('speedtest-e2e-cmd-');
     const script = path.join(dir, 'mock-agent.mjs');
     await writeFile(
@@ -349,14 +349,14 @@ describe.concurrent('argument validation', () => {
     expect(help.stdout).not.toMatch(/RFC 3550|5-8s/);
 
     const version = await cli(['--version']);
-    expect(version.stdout.trim()).toBe('speedtest-ai v0.5.0');
+    expect(version.stdout.trim()).toBe('speedtest-ai v0.6.0');
   });
 });
 
 describe.concurrent('interrupts and closed pipes', () => {
   const slowDemo = ['demo', '--profile', 'local', '--plain'];
 
-  it('exits 130 on Ctrl-C without a result or a history entry', { timeout: 30_000 }, async () => {
+  it.skipIf(process.platform === 'win32')('exits 130 on Ctrl-C without a result or a history entry', { timeout: 30_000 }, async () => {
     const home = await makeTempDir('speedtest-e2e-home-');
     const run = await cli(slowDemo, {
       home,
@@ -370,7 +370,7 @@ describe.concurrent('interrupts and closed pipes', () => {
     expect(await readdir(home)).toEqual([]);
   });
 
-  it('stops the whole compare on Ctrl-C and prints the partial leaderboard', { timeout: 40_000 }, async () => {
+  it.skipIf(process.platform === 'win32')('stops the whole compare on Ctrl-C and prints the partial leaderboard', { timeout: 40_000 }, async () => {
     const run = await cli(['compare', '-t', 'demo:frontier,demo:local,demo:flash', '--quick', '--plain', '--no-history'], {
       act: { when: '[2/3]', do: (child) => void child.kill('SIGINT') },
     });
@@ -382,7 +382,7 @@ describe.concurrent('interrupts and closed pipes', () => {
     expect(run.stderr).toContain('interrupted');
   });
 
-  it('reports an interrupted compare as JSON with the completed results', { timeout: 40_000 }, async () => {
+  it.skipIf(process.platform === 'win32')('reports an interrupted compare as JSON with the completed results', { timeout: 40_000 }, async () => {
     const run = await cli(['compare', '-t', 'demo:frontier,demo:local', '--quick', '--jsonl', '--no-history'], {
       act: { when: /"type":"run:complete"[\s\S]*"type":"run:start"/, do: (child) => void child.kill('SIGINT') },
     });
@@ -393,7 +393,7 @@ describe.concurrent('interrupts and closed pipes', () => {
     expect(events.some((e) => e.type === 'run:error' && e.kind === 'interrupted')).toBe(true);
   });
 
-  it('exits 143 on SIGTERM', { timeout: 30_000 }, async () => {
+  it.skipIf(process.platform === 'win32')('exits 143 on SIGTERM', { timeout: 30_000 }, async () => {
     const run = await cli(slowDemo.concat('--no-history'), {
       env: { SPEEDTEST_AI_DEMO_TIME_SCALE: '1' },
       act: { when: 'Download', do: (child) => void child.kill('SIGTERM') },
@@ -402,7 +402,7 @@ describe.concurrent('interrupts and closed pipes', () => {
     expect(run.stderr).toContain('terminated');
   });
 
-  it('kills a child that ignores SIGTERM; a second Ctrl-C exits at once', { timeout: 30_000 }, async () => {
+  it.skipIf(process.platform === 'win32')('kills a child that ignores SIGTERM; a second Ctrl-C exits at once', { timeout: 30_000 }, async () => {
     const dir = await makeTempDir('speedtest-e2e-stubborn-');
     const pidFile = path.join(dir, 'pid');
     const script = path.join(dir, 'stubborn.sh');
@@ -529,7 +529,7 @@ process.exit(1);
     expect(JSON.parse(json.stdout)).toMatchObject({ results: [], failed: [] });
   });
 
-  it('benchmarks every detected CLI and exits 0 when one of two fails', { timeout: 40_000 }, async (ctx) => {
+  it.skipIf(process.platform === 'win32')('benchmarks every detected CLI and exits 0 when one of two fails', { timeout: 40_000 }, async (ctx) => {
     if (localRuntimeRunning) return ctx.skip();
     const dir = await fakeBin({ grok: true, agy: true });
 
@@ -550,7 +550,7 @@ process.exit(1);
     expect(report.failed).toMatchObject([{ targetId: 'agy', kind: 'failed', failureKind: 'auth' }]);
   });
 
-  it('exits 1 with --json and --jsonl when every detected CLI fails', { timeout: 40_000 }, async (ctx) => {
+  it.skipIf(process.platform === 'win32')('exits 1 with --json and --jsonl when every detected CLI fails', { timeout: 40_000 }, async (ctx) => {
     if (localRuntimeRunning) return ctx.skip();
     const dir = await fakeBin({ agy: true });
 
@@ -565,7 +565,7 @@ process.exit(1);
     expect(events.at(-1)).toMatchObject({ type: 'batch:complete', ranking: [] });
   });
 
-  it('detect lists the fake CLIs without running them', { timeout: 30_000 }, async () => {
+  it.skipIf(process.platform === 'win32')('detect lists the fake CLIs without running them', { timeout: 30_000 }, async () => {
     const dir = await fakeBin({ grok: true, agy: true });
     await mkdir(path.join(dir, 'unused'), { recursive: true });
     const run = await cli(['detect'], { env: { PATH: dir } });

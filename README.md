@@ -5,7 +5,7 @@ agent CLIs installed on your machine (`claude`, `codex`, `agy`, `grok`, `muse`, 
 the same prompt, and reports a time to first token and a tokens-per-second figure that can be
 compared between them.
 
-Version 0.5.0. Node.js 20 or newer, no runtime dependencies.
+Version 0.6.0. Linux, macOS and Windows. Node.js 20 or newer, no runtime dependencies.
 
 > `all`, `run` and `compare` call the real CLIs with your accounts. They send real prompts and
 > **spend real model tokens**. `demo` and `detect` do not call any model.
@@ -29,6 +29,19 @@ curl -fsSL https://krutrimmulyankan.in/speedtest/install.sh | SPEEDTEST_NO_AUTO_
 ```
 
 `INSTALL_DIR=/some/dir` installs somewhere else.
+
+### Windows
+
+In PowerShell:
+
+```powershell
+irm https://krutrimmulyankan.in/speedtest/install.ps1 | iex
+```
+
+It installs to `%LOCALAPPDATA%\Programs\speedtest-ai`, adds that folder to your user `PATH`, and
+does not start a test. Agent CLIs installed with npm (`.cmd` shims) and native `.exe` installs are
+both found. The test suite runs on Windows in CI; real agent CLIs on Windows have not been measured
+by the maintainers yet, so treat results there as new.
 
 ### Update
 

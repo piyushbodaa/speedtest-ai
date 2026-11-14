@@ -44,7 +44,7 @@ import {
   type TargetInfo,
 } from './types.js';
 
-const VERSION = '0.5.0';
+const VERSION = '0.6.0';
 
 const EXIT_OK = 0;
 const EXIT_FAILED = 1;
@@ -533,11 +533,18 @@ async function runDefault(run: RunOptions): Promise<number> {
 function runUpdate(): number {
   const base = (process.env.SPEEDTEST_AI_BASE_URL || 'https://krutrimmulyankan.in/speedtest').replace(/\/+$/, '');
   out(`Updating speedtest-ai (currently v${VERSION}) from ${base} …\n`);
-  const script = 's=$(curl -fsSL "$1/install.sh") || exit 1; printf "%s\\n" "$s" | sh';
-  const res = spawnSync('sh', ['-c', script, 'sh', base], {
-    stdio: 'inherit',
-    env: { ...process.env, SPEEDTEST_NO_AUTO_RUN: '1' },
-  });
+  const env = { ...process.env, SPEEDTEST_NO_AUTO_RUN: '1' };
+  const res =
+    process.platform === 'win32'
+      ? spawnSync(
+          'powershell',
+          ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', '& ([scriptblock]::Create((irm ($env:SPEEDTEST_UPDATE_BASE + "/install.ps1"))))'],
+          { stdio: 'inherit', env: { ...env, SPEEDTEST_UPDATE_BASE: base } }
+        )
+      : spawnSync('sh', ['-c', 's=$(curl -fsSL "$1/install.sh") || exit 1; printf "%s\\n" "$s" | sh', 'sh', base], {
+          stdio: 'inherit',
+          env,
+        });
   if (res.status === 0) return EXIT_OK;
   printError('update failed. You can also re-run the install command from the website.');
   return 1;

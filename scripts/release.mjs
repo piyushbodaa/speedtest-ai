@@ -4,7 +4,8 @@
 //   speedtest-ai.cjs   the CommonJS bundle that install.sh downloads
 //   speedtest-ai.mjs   the same program as an ES module (the filename older installers fetch)
 //   install.sh         scripts/install.sh with the bundle's SHA-256 pinned
-//   checksums.txt      SHA-256 of the three files above
+//   install.ps1        scripts/install.ps1 (Windows) with the same pin
+//   checksums.txt      SHA-256 of the files above
 //
 // Deploy by copying the whole folder to the website in one step, so install.sh and the bundle it
 // pins never go out of sync.
@@ -97,6 +98,7 @@ const outputs = {
   cjs: path.join(releaseDir, 'speedtest-ai.cjs'),
   esm: path.join(releaseDir, 'speedtest-ai.mjs'),
   installer: path.join(releaseDir, 'install.sh'),
+  windowsInstaller: path.join(releaseDir, 'install.ps1'),
 };
 fs.copyFileSync(cjsBundle, outputs.cjs);
 fs.copyFileSync(esmBundle, outputs.esm);
@@ -114,6 +116,11 @@ if (installerSource.split(pinLine).length !== 2) {
 fs.writeFileSync(outputs.installer, installerSource.replace(pinLine, `PINNED_SHA256="${sha256(outputs.cjs)}"`), {
   mode: 0o755,
 });
+
+const psSource = fs.readFileSync(path.join(root, 'scripts', 'install.ps1'), 'utf8');
+const psPin = `$pinnedSha256 = '${SHA_PLACEHOLDER}'`;
+if (psSource.split(psPin).length !== 2) fail(`scripts/install.ps1 must contain the line ${psPin} exactly once`);
+fs.writeFileSync(outputs.windowsInstaller, psSource.replace(psPin, `$pinnedSha256 = '${sha256(outputs.cjs)}'`));
 
 const checksumLines = Object.values(outputs).map((file) => `${sha256(file)}  ${path.basename(file)}`);
 fs.writeFileSync(path.join(releaseDir, 'checksums.txt'), checksumLines.join('\n') + '\n');
