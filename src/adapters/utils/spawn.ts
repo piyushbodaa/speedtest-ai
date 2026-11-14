@@ -6,6 +6,7 @@ import { performance } from 'node:perf_hooks';
 import { Readable, type Writable } from 'node:stream';
 import { StringDecoder } from 'node:string_decoder';
 import { buildSafeEnv } from '../../core/detect.js';
+import { IS_WINDOWS, killTree, spawnTarget, treeAlive } from '../../core/platform.js';
 
 /** SIGTERM goes to the whole process group first; SIGKILL follows after this long. */
 export const KILL_GRACE_MS = 1500;
@@ -65,31 +66,8 @@ interface LiveChild {
 const liveChildren = new Set<LiveChild>();
 let exitHookInstalled = false;
 
-function signalGroup(pid: number, signal: NodeJS.Signals, groupOnly = false): boolean {
-  try {
-    process.kill(-pid, signal);
-    return true;
-  } catch {
-    if (groupOnly) return false;
-    try {
-      // The group may be gone while the leader is still a zombie, or the child never became a
-      // group leader; fall back to the single pid. ESRCH here means there is nothing left.
-      process.kill(pid, signal);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-}
-
-function groupAlive(pid: number): boolean {
-  try {
-    process.kill(-pid, 0);
-    return true;
-  } catch (err) {
-    return (err as NodeJS.ErrnoException).code === 'EPERM';
-  }
-}
+const signalGroup = killTree;
+const groupAlive = treeAlive;
 
 function forget(entry: LiveChild): void {
   if (entry.killTimer) clearTimeout(entry.killTimer);
@@ -189,13 +167,17 @@ export function spawnIsolated(cmd: string, args: string[], opts: SpawnOptions): 
 
   let child: ChildProcess;
   try {
-    child = spawn(cmd, args, {
+    const target = opts.shell ? { file: cmd, args } : spawnTarget(cmd, args);
+    child = spawn(target.file, target.args, {
       cwd: opts.cwd,
       env: buildSafeEnv(opts.env),
       stdio: [opts.stdin === 'pipe' ? 'pipe' : 'ignore', 'pipe', 'pipe'],
       shell: opts.shell ?? false,
-      detached: true,
+      // POSIX: the child leads its own process group so the whole group can be signalled.
+      // Windows has no groups (taskkill walks the tree) and `detached` would open a console.
+      detached: !IS_WINDOWS,
       windowsHide: true,
+      windowsVerbatimArguments: 'windowsVerbatimArguments' in target ? target.windowsVerbatimArguments : undefined,
     });
   } catch (err) {
     return failedHandle(err as NodeJS.ErrnoException, spawnedAtMs);

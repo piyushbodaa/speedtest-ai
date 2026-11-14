@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }} · Node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Simulated run from the built bundle
+        run: node dist/cli.cjs demo --quick --plain --no-history
+      - name: Detection finishes and prints JSON
+        run: node dist/cli.cjs detect --json
+      - name: Release bundle
+        run: node scripts/release.mjs --skip-checks --no-build
+      - name: Windows installer installs and runs
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:SPEEDTEST_AI_BASE_URL = (Resolve-Path release).Path
+          $env:INSTALL_DIR = Join-Path $env:RUNNER_TEMP 'speedtest-ai-install'
+          ./release/install.ps1
+          & (Join-Path $env:INSTALL_DIR 'speedtest-ai.cmd') --version
+          & (Join-Path $env:INSTALL_DIR 'speedtest-ai.cmd') demo --quick --plain --no-history
+      - name: POSIX installer installs and runs
+        if: runner.os != 'Windows'
+        run: |
+          export HOME="$RUNNER_TEMP/home" SPEEDTEST_NO_AUTO_RUN=1
+          mkdir -p "$HOME"
+          SPEEDTEST_AI_BASE_URL="file://$PWD/release" sh release/install.sh
+          "$HOME/.local/bin/speedtest-ai" --version

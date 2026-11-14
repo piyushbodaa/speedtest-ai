@@ -13,6 +13,7 @@ import {
 import { DEMO_PROFILE_NAMES } from '../adapters/providers/demo.js';
 import { ollamaBaseUrl } from '../adapters/providers/ollama.js';
 import type { AuthState, TargetInfo } from '../types.js';
+import { executableNames, IS_WINDOWS, killTree, spawnTarget } from './platform.js';
 
 export const MISE_WHICH_TIMEOUT_MS = 2000;
 export const VERSION_PROBE_TIMEOUT_MS = 2000;
@@ -55,11 +56,7 @@ function trackProbe(pid: number): void {
   probeExitHook = true;
   process.once('exit', () => {
     for (const p of liveProbes) {
-      try {
-        process.kill(-p, 'SIGKILL');
-      } catch {
-        // Already gone.
-      }
+      killTree(p, 'SIGKILL');
     }
   });
 }
@@ -88,11 +85,13 @@ export function runCapture(
 
     let child: ReturnType<typeof spawn>;
     try {
-      child = spawn(command, args, {
+      const target = spawnTarget(command, args);
+      child = spawn(target.file, target.args, {
         cwd: options.cwd ?? os.tmpdir(),
         env: buildSafeEnv(options.env),
         stdio: ['ignore', 'pipe', 'pipe'],
-        detached: true,
+        detached: !IS_WINDOWS,
+        windowsVerbatimArguments: target.windowsVerbatimArguments,
         windowsHide: true,
       });
     } catch {
@@ -109,11 +108,7 @@ export function runCapture(
     const timer = setTimeout(() => {
       timedOut = true;
       if (typeof child.pid === 'number') {
-        try {
-          process.kill(-child.pid, 'SIGKILL');
-        } catch {
-          child.kill('SIGKILL');
-        }
+        killTree(child.pid, 'SIGKILL');
       }
       // A grandchild that left the group can keep the pipes open; do not wait for 'close'.
       child.stdout?.destroy();
@@ -214,12 +209,14 @@ export async function resolveBinary(cmd: string, options: ResolveBinaryOptions =
   let misePath: string | undefined;
 
   for (const dir of dirs) {
-    const candidate = path.join(dir, cmd);
-    if (!(await isExecutableFile(candidate))) continue;
-    const check = await checkShim(candidate);
-    if (!check.shim) return { status: 'found', path: candidate };
-    shimPath ??= candidate;
-    misePath ??= check.misePath;
+    for (const name of executableNames(cmd)) {
+      const candidate = path.join(dir, name);
+      if (!(await isExecutableFile(candidate))) continue;
+      const check = await checkShim(candidate);
+      if (!check.shim) return { status: 'found', path: candidate };
+      shimPath ??= candidate;
+      misePath ??= check.misePath;
+    }
   }
 
   if (!shimPath) return { status: 'missing', path: null };
