@@ -68,6 +68,11 @@ export interface RunSpeedtestOptions {
   signal?: AbortSignal;
   /** Run harness CLIs with the user's full setup instead of the lean default. */
   asConfigured?: boolean;
+  /**
+   * Let the tool-loop phase start a CLI with its permission prompts turned off, where that is the
+   * only way to run it unattended. Off by default: the phase is skipped for those CLIs.
+   */
+  allowPermissionBypass?: boolean;
 }
 
 export interface RunSpeedtestRepeatedOptions extends RunSpeedtestOptions {
@@ -382,6 +387,13 @@ async function* runOnce(
   for (let i = 0; i < phases.length; i++) {
     const phase = phases[i];
     yield { type: 'phase:start', phase, index: i + 1, total: phases.length, label: PHASE_LABELS[phase] };
+
+    if (phase === 'tool_loop' && adapter.toolLoopBypassesPermissions && !options.allowPermissionBypass) {
+      const reason = `not run: it needs ${adapter.name} started with its permission prompts off. Pass --allow-permission-bypass to run it.`;
+      skipped.push({ phase, reason });
+      yield { type: 'phase:skip', phase, reason };
+      continue;
+    }
 
     let metrics: PhaseResult;
     try {

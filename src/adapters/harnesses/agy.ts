@@ -132,6 +132,7 @@ export function createAgyAdapter(binaryPath = 'agy', options: AgyAdapterOptions 
     category: 'harness',
     tier: 'verified',
     supportsToolLoop: true,
+    toolLoopBypassesPermissions: true,
     async *stream(req: AdapterInvokeRequest): AsyncGenerator<AdapterStreamChunk, void, unknown> {
       const fallbackModel =
         req.model && req.model !== 'default' ? req.model : readAgyConfiguredModel(options.settingsPath);
