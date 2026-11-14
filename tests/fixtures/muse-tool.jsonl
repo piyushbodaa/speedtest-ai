@@ -1,0 +1,36 @@
+{"payload_type":"runtime.command.accepted","payload":{"command_kind":"turn.submit","kind":"command_accepted"}}
+{"payload_type":"session.run.linked","payload":{"kind":"session_run_linked"}}
+{"payload_type":"run.model.configured","payload":{"display_label":"muse-spark-1.3","kind":"run_model_configured","model_id":"muse-spark-1.3","provider_id":"meta","source":"startup"}}
+{"payload_type":"turn.input.user","payload":{"kind":"turn_input_user","prompt":"Read the file note.txt in the workspace and reply with only the secret token."}}
+{"payload_type":"run.lifecycle.started","payload":{"kind":"run_started","prompt":"Read the file note.txt in the workspace and reply with only the secret token."}}
+{"payload_type":"task.stream.linked","payload":{"kind":"task_stream_linked"}}
+{"payload_type":"task.lifecycle.proposed","payload":{"event":{"kind":"proposed","task_kind":"model.meta.response"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.accepted","payload":{"event":{"kind":"accepted"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.scheduled","payload":{"event":{"kind":"scheduled"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.side_effect_intent","payload":{"event":{"kind":"side_effect_intent","operation":"model.meta.response","policy_decision":"not_applicable"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.started","payload":{"event":{"kind":"started"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.status","payload":{"event":{"details":{"facets":[{"attempt":1,"kind":"external_attempt","max_attempts":10,"operation":"model.response","system":"meta"},{"detail":{"kind":"provider","provider":"meta"},"kind":"producer"}],"phase":"opening_stream"},"kind":"status","message":"opening meta model stream attempt 1/10"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.status","payload":{"event":{"details":{"facets":[{"attempt":1,"error_kind":"stream_succeeded","kind":"external_attempt","max_attempts":10,"operation":"model.response","system":"meta"},{"detail":{"kind":"provider","model":"muse-spark-1.3-contributor","provider":"meta","stream":{"bytes_before_first_event":0,"bytes_read":322561,"eof":false,"eof_buffer_len":0,"last_wire_event_type":"response.completed","request_gzip":false,"request_logical_bytes":143122,"request_wire_bytes":143122,"time_to_first_event_ms":658,"time_to_first_token_ms":3699,"wire_events_seen":15}},"kind":"producer"}],"phase":"stream_succeeded"},"kind":"status","message":"completed meta model stream attempt 1/10"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.completed","payload":{"event":{"kind":"completed"},"kind":"task_lifecycle"}}
+{"payload_type":"task.stream.linked","payload":{"kind":"task_stream_linked"}}
+{"payload_type":"task.lifecycle.proposed","payload":{"event":{"kind":"proposed","task_kind":"tool.read_file"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.accepted","payload":{"event":{"kind":"accepted"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.scheduled","payload":{"event":{"kind":"scheduled"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.side_effect_intent","payload":{"event":{"kind":"side_effect_intent","operation":"tool:read_file","policy_decision":"allow:policy"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.started","payload":{"event":{"kind":"started"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.output","payload":{"event":{"chunk":"Read text file `note.txt`.\n1|The secret token is ZEBRA-4417.","final_result":true,"kind":"output"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.completed","payload":{"event":{"kind":"completed"},"kind":"task_lifecycle"}}
+{"payload_type":"tool.result","payload":{"correlation_facts":{"outcome":"success","tool_name":"read_file"},"kind":"tool_result","text":"Read text file `note.txt`.\n1|The secret token is ZEBRA-4417."}}
+{"payload_type":"task.stream.linked","payload":{"kind":"task_stream_linked"}}
+{"payload_type":"task.lifecycle.proposed","payload":{"event":{"kind":"proposed","task_kind":"model.meta.response"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.accepted","payload":{"event":{"kind":"accepted"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.scheduled","payload":{"event":{"kind":"scheduled"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.side_effect_intent","payload":{"event":{"kind":"side_effect_intent","operation":"model.meta.response","policy_decision":"not_applicable"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.started","payload":{"event":{"kind":"started"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.status","payload":{"event":{"details":{"facets":[{"attempt":1,"kind":"external_attempt","max_attempts":10,"operation":"model.response","system":"meta"},{"detail":{"kind":"provider","provider":"meta"},"kind":"producer"}],"phase":"opening_stream"},"kind":"status","message":"opening meta model stream attempt 1/10"},"kind":"task_lifecycle"}}
+{"payload_type":"run.output.delta","payload":{"kind":"run_output_delta","text":"ZEB"}}
+{"payload_type":"run.output.delta","payload":{"kind":"run_output_delta","text":"RA-4417"}}
+{"payload_type":"task.lifecycle.status","payload":{"event":{"details":{"facets":[{"attempt":1,"error_kind":"stream_succeeded","kind":"external_attempt","max_attempts":10,"operation":"model.response","system":"meta"},{"detail":{"kind":"provider","model":"muse-spark-1.3-contributor","provider":"meta","stream":{"bytes_before_first_event":0,"bytes_read":321083,"eof":false,"eof_buffer_len":0,"last_wire_event_type":"response.completed","request_gzip":false,"request_logical_bytes":145163,"request_wire_bytes":145163,"time_to_first_event_ms":673,"time_to_first_token_ms":3628,"wire_events_seen":12}},"kind":"producer"}],"phase":"stream_succeeded"},"kind":"status","message":"completed meta model stream attempt 1/10"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.completed","payload":{"event":{"kind":"completed"},"kind":"task_lifecycle"}}
+{"payload_type":"run.usage","payload":{"calls":2,"cancelled_calls":0,"children_included":false,"completed_calls":2,"failed_calls":0,"kind":"run_usage","models":[{"cached_tokens":30705,"calls":2,"input_tokens":61724,"model":"muse-spark-1.3","output_tokens":106,"reasoning_tokens":22}]}}
+{"payload_type":"run.terminal.completed","payload":{"kind":"run_terminal","reason":null,"terminal":"completed","text":"ZEBRA-4417"}}

@@ -1,0 +1,20 @@
+{"event":"init","init":{"model":"gemini-4-carbon-low","permission_mode":"request-review"}}
+{"event":"step_update","step_update":{"step_index":0,"state":"DONE","step_type":"user_input"}}
+{"event":"step_update","step_update":{"step_index":1,"state":"ACTIVE","step_type":"agent_response","text_delta":"1. Your browser"}}
+{"event":"step_update","step_update":{"step_index":1,"state":"ACTIVE","step_type":"agent_response","text_delta":" checks its local cache first before asking a re"}}
+{"event":"step_update","step_update":{"step_index":1,"state":"ACTIVE","step_type":"agent_response","text_delta":"cursive reso"}}
+{"event":"step_update","step_update":{"step_index":1,"state":"ACTIVE","step_type":"agent_response","text_delta":"lver.\n2. That resolver q"}}
+{"event":"step_update","step_update":{"step_index":1,"state":"ACTIVE","step_type":"agent_response","text_delta":"ueries a root nameserver"}}
+{"event":"step_update","step_update":{"step_index":1,"state":"ACTIVE","step_type":"agent_response","text_delta":" to"}}
+{"event":"step_update","step_update":{"step_index":1,"state":"ACTIVE","step_type":"agent_response","text_delta":" locate the top-level domain server."}}
+{"event":"step_update","step_update":{"step_index":1,"state":"ACTIVE","step_type":"agent_response","text_delta":"\n3. Next, the top-level "}}
+{"event":"step_update","step_update":{"step_index":1,"state":"ACTIVE","step_type":"agent_response","text_delta":"domain server directs th"}}
+{"event":"step_update","step_update":{"step_index":1,"state":"ACTIVE","step_type":"agent_response","text_delta":"e query towa"}}
+{"event":"step_update","step_update":{"step_index":1,"state":"ACTIVE","step_type":"agent_response","text_delta":"rd the authoritative nam"}}
+{"event":"step_update","step_update":{"step_index":1,"state":"ACTIVE","step_type":"agent_response","text_delta":"es"}}
+{"event":"step_update","step_update":{"step_index":1,"state":"ACTIVE","step_type":"agent_response","text_delta":"erver.\n4. Finally, the authoritative nameserver "}}
+{"event":"step_update","step_update":{"step_index":1,"state":"ACTIVE","step_type":"agent_response","text_delta":"returns the matching IP "}}
+{"event":"step_update","step_update":{"step_index":1,"state":"ACTIVE","step_type":"agent_response","text_delta":"address to y"}}
+{"event":"step_update","step_update":{"step_index":1,"state":"ACTIVE","step_type":"agent_response","text_delta":"our browser."}}
+{"event":"step_update","step_update":{"step_index":1,"state":"DONE","step_type":"agent_response","text_delta":"\n","duration_seconds":8.658553568,"usage":{"input_tokens":10693,"output_tokens":76,"thinking_tokens":0,"cache_read_tokens":0,"total_tokens":10769}}}
+{"event":"result","result":{"status":"SUCCESS","response":"1. Your browser checks its local cache first before asking a recursive resolver.\n2. That resolver queries a root nameserver to locate the top-level domain server.\n3. Next, the top-level domain server directs the query toward the authoritative nameserver.\n4. Finally, the authoritative nameserver returns the matching IP address to your browser.\n","duration_seconds":8.686275059,"num_turns":1,"usage":{"input_tokens":10693,"output_tokens":76,"thinking_tokens":0,"cache_read_tokens":0,"total_tokens":10769}}}

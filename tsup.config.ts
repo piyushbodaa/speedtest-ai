@@ -1,19 +1,34 @@
 import { chmod } from 'node:fs/promises';
 import { defineConfig } from 'tsup';
 
+const shebang = { js: '#!/usr/bin/env node' };
+
 export default defineConfig([
   {
+    // The installed command. CommonJS, because the installer drops it as an extensionless file and
+    // Node only runs extensionless ES modules from 20.19 / 22.7 on; CommonJS runs on every Node 20+.
     entry: { cli: 'src/cli.ts' },
-    format: ['esm'],
+    format: ['cjs'],
+    outExtension: () => ({ js: '.cjs' }),
     target: 'node20',
     platform: 'node',
-    clean: true,
     sourcemap: true,
-    banner: {
-      js: '#!/usr/bin/env node',
-    },
+    banner: shebang,
     async onSuccess() {
-      await chmod('dist/cli.js', 0o755);
+      await chmod('dist/cli.cjs', 0o755);
+    },
+  },
+  {
+    // Same program as a standalone ES module, published as speedtest-ai.mjs for older installers.
+    entry: { cli: 'src/cli.ts' },
+    format: ['esm'],
+    outExtension: () => ({ js: '.mjs' }),
+    target: 'node20',
+    platform: 'node',
+    sourcemap: false,
+    banner: shebang,
+    async onSuccess() {
+      await chmod('dist/cli.mjs', 0o755);
     },
   },
   {
@@ -23,6 +38,5 @@ export default defineConfig([
     platform: 'node',
     dts: true,
     sourcemap: true,
-    clean: false,
   },
 ]);

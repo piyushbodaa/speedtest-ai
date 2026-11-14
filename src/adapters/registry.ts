@@ -1,11 +1,20 @@
-import { resolveRealBinary } from '../core/detect.js';
-import type { SpeedtestAdapter, TargetInfo } from '../types.js';
-import { createAgyAdapter } from './harnesses/agy.js';
-import { createClaudeAdapter } from './harnesses/claude.js';
-import { createCodexAdapter } from './harnesses/codex.js';
+import {
+  describeMissingBinary,
+  describeUnsupported,
+  probeCapability,
+  resolveBinary,
+  type BinaryResolution,
+} from '../core/detect.js';
+import { TargetFailedError } from '../core/errors.js';
+import type { SpeedtestAdapter, SupportTier, TargetInfo } from '../types.js';
+import {
+  findHarnessEntry,
+  findProviderEntry,
+  type HarnessEntry,
+  type ProviderEntry,
+  providerApiKey,
+} from './catalog.js';
 import { createCustomCmdAdapter } from './harnesses/custom-cmd.js';
-import { createGrokAdapter } from './harnesses/grok.js';
-import { createMuseAdapter } from './harnesses/muse.js';
 import { createAnthropicAdapter } from './providers/anthropic.js';
 import { createDemoAdapter, type DemoProfileName } from './providers/demo.js';
 import { createGeminiAdapter } from './providers/gemini.js';
@@ -18,12 +27,20 @@ export interface ResolveTargetOptions {
   cmd?: string;
   baseUrl?: string;
   apiKey?: string;
+  /** Result of detectTargets(); saves resolving the binary and probing the CLI again. */
   detectedTargets?: TargetInfo[];
+  /** PATH to search instead of process.env.PATH. */
+  pathEnv?: string;
 }
 
 export interface ResolvedAdapter {
   adapter: SpeedtestAdapter;
+  /**
+   * The model to pass to the runner. For agent CLIs this is set only when the user named one
+   * (`-m` or `target:model`), so the CLI's own configured model is used otherwise.
+   */
   model?: string;
+  tier: SupportTier;
 }
 
 export function parseTargetSpec(spec: string): { id: string; model?: string } {
@@ -36,155 +53,169 @@ export function parseTargetSpec(spec: string): { id: string; model?: string } {
   return { id, model: model || undefined };
 }
 
+async function locateHarnessBinary(
+  entry: HarnessEntry,
+  detected: TargetInfo | undefined,
+  pathEnv: string | undefined
+): Promise<string> {
+  if (detected?.binaryPath) return detected.binaryPath;
+
+  let miss: BinaryResolution | undefined;
+  for (const command of entry.commands) {
+    const resolution = await resolveBinary(command, { pathEnv });
+    if (resolution.status === 'found' && resolution.path) return resolution.path;
+    if (!miss || (miss.status === 'missing' && resolution.status !== 'missing')) miss = resolution;
+  }
+  // Never fall back to the bare command name: on a mise machine that would execute the shim.
+  throw new TargetFailedError(
+    `${entry.id}: ${describeMissingBinary(miss ?? { status: 'missing', path: null })}`,
+    { kind: 'not_found' }
+  );
+}
+
+async function resolveHarness(
+  entry: HarnessEntry,
+  opts: ResolveTargetOptions,
+  model: string | undefined
+): Promise<ResolvedAdapter> {
+  const detected = opts.detectedTargets?.find((t) => t.id === entry.id);
+  const binaryPath = await locateHarnessBinary(entry, detected, opts.pathEnv);
+  const capability = await probeCapability(entry, binaryPath);
+  if (!entry.create || !capability.ok) {
+    throw new TargetFailedError(`${entry.id}: ${describeUnsupported(entry, capability)}`);
+  }
+  return {
+    adapter: entry.create(binaryPath, { helpText: capability.helpText }),
+    model: model && model !== 'default' ? model : undefined,
+    tier: entry.tier,
+  };
+}
+
+function resolveProvider(
+  entry: ProviderEntry,
+  opts: ResolveTargetOptions,
+  model: string | undefined
+): ResolvedAdapter {
+  const detected = opts.detectedTargets?.find((t) => t.id === entry.id);
+  const apiKey = opts.apiKey || providerApiKey(entry);
+  const tier: SupportTier = 'verified';
+
+  switch (entry.id) {
+    case 'ollama': {
+      const resolvedModel = model || detected?.defaultModel;
+      return {
+        adapter: createOllamaAdapter({ baseUrl: opts.baseUrl, defaultModel: resolvedModel }),
+        model: resolvedModel,
+        tier,
+      };
+    }
+    case 'anthropic': {
+      const resolvedModel = model || entry.defaultModel;
+      return {
+        adapter: createAnthropicAdapter({ apiKey, baseUrl: opts.baseUrl, defaultModel: resolvedModel }),
+        model: resolvedModel,
+        tier,
+      };
+    }
+    case 'gemini-api': {
+      const resolvedModel = model || entry.defaultModel;
+      return {
+        adapter: createGeminiAdapter({ apiKey, baseUrl: opts.baseUrl, defaultModel: resolvedModel }),
+        model: resolvedModel,
+        tier,
+      };
+    }
+    default: {
+      const resolvedModel = model || detected?.defaultModel || entry.defaultModel;
+      if (!resolvedModel) {
+        throw new TargetFailedError(
+          `${entry.id}: no model is loaded; pass one as -t ${entry.id}:<model>`,
+          { kind: 'model' }
+        );
+      }
+      const baseUrl =
+        opts.baseUrl ||
+        (entry.id === 'openai' ? process.env.OPENAI_BASE_URL : undefined) ||
+        entry.defaultBaseUrl;
+      return {
+        adapter: createOpenAiCompatibleAdapter({
+          id: entry.id,
+          name: entry.name,
+          category: entry.category,
+          baseUrl: baseUrl!,
+          apiKey,
+          requireApiKey: entry.envKeys.length > 0 ? entry.envKeys.join(' / ') : undefined,
+          defaultModel: resolvedModel,
+          extraHeaders:
+            entry.id === 'openrouter'
+              ? { 'HTTP-Referer': 'https://github.com/speedtest-ai', 'X-Title': 'speedtest-ai' }
+              : undefined,
+        }),
+        model: resolvedModel,
+        tier,
+      };
+    }
+  }
+}
+
+/**
+ * Turns a target spec (`claude`, `ollama:llama3.2`, `cmd`, ...) into an adapter, driven by the
+ * catalog. Throws a TargetFailedError when the CLI is missing or has no usable adapter; it never
+ * returns an adapter that would execute a mise shim.
+ */
 export async function resolveAdapter(opts: ResolveTargetOptions): Promise<ResolvedAdapter> {
   const parsed = parseTargetSpec(opts.targetSpec);
   const id = parsed.id;
   const model = opts.model || parsed.model;
-  const detected = opts.detectedTargets?.find((t) => t.id === id);
 
-  switch (id) {
-    case 'demo': {
-      const profile = (model as DemoProfileName | undefined) ?? 'frontier';
-      return {
-        adapter: createDemoAdapter(profile),
-        model: profile,
-      };
+  if (id === 'demo') {
+    const profile = (model as DemoProfileName | undefined) ?? 'frontier';
+    return { adapter: createDemoAdapter(profile), model: profile, tier: 'verified' };
+  }
+
+  if (id === 'cmd') {
+    if (!opts.cmd) {
+      throw new TargetFailedError('Target "cmd" requires --cmd "<command template>"');
     }
+    const adapter = createCustomCmdAdapter(opts.cmd);
+    return { adapter, model: model || 'custom-cmd', tier: adapter.tier };
+  }
 
-    case 'claude': {
-      const bin = detected?.binaryPath || (await resolveRealBinary('claude')) || 'claude';
-      return { adapter: createClaudeAdapter(bin), model };
-    }
-
-    case 'codex': {
-      const bin = detected?.binaryPath || (await resolveRealBinary('codex')) || 'codex';
-      return { adapter: createCodexAdapter(bin), model };
-    }
-
-    case 'agy': {
-      const bin = detected?.binaryPath || (await resolveRealBinary('agy')) || 'agy';
-      return { adapter: createAgyAdapter(bin), model };
-    }
-
-    case 'grok': {
-      const bin = detected?.binaryPath || (await resolveRealBinary('grok')) || 'grok';
-      return { adapter: createGrokAdapter(bin), model };
-    }
-
-    case 'muse': {
-      const bin = detected?.binaryPath || (await resolveRealBinary('muse')) || 'muse';
-      return { adapter: createMuseAdapter(bin), model };
-    }
-
-    case 'cmd': {
-      if (!opts.cmd) {
-        throw new Error('Target "cmd" requires --cmd "<command template>"');
+  const harness = findHarnessEntry(id);
+  if (harness) {
+    try {
+      return await resolveHarness(harness, opts, model);
+    } catch (err) {
+      if (id === 'gemini' && err instanceof TargetFailedError && err.kind === 'not_found') {
+        throw new TargetFailedError(`${err.message}. For the Gemini API use -t gemini-api[:model].`, {
+          kind: 'not_found',
+        });
       }
-      return { adapter: createCustomCmdAdapter(opts.cmd), model: model || 'custom-cmd' };
-    }
-
-    case 'ollama': {
-      const resolvedModel = model || detected?.defaultModel;
-      return {
-        adapter: createOllamaAdapter({
-          baseUrl: opts.baseUrl,
-          defaultModel: resolvedModel,
-        }),
-        model: resolvedModel,
-      };
-    }
-
-    case 'lmstudio': {
-      const resolvedModel = model || detected?.defaultModel || 'local-model';
-      return {
-        adapter: createOpenAiCompatibleAdapter({
-          id: 'lmstudio',
-          name: 'LM Studio (Local)',
-          category: 'local',
-          baseUrl: opts.baseUrl || 'http://127.0.0.1:1234/v1',
-          apiKey: opts.apiKey,
-          defaultModel: resolvedModel,
-        }),
-        model: resolvedModel,
-      };
-    }
-
-    case 'openai': {
-      const resolvedModel = model || 'gpt-4.1-mini';
-      return {
-        adapter: createOpenAiCompatibleAdapter({
-          id: 'openai',
-          name: 'OpenAI API',
-          category: 'provider',
-          baseUrl: opts.baseUrl || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
-          apiKey: opts.apiKey || process.env.OPENAI_API_KEY,
-          defaultModel: resolvedModel,
-        }),
-        model: resolvedModel,
-      };
-    }
-
-    case 'openrouter': {
-      const resolvedModel = model || 'openai/gpt-4.1-mini';
-      return {
-        adapter: createOpenAiCompatibleAdapter({
-          id: 'openrouter',
-          name: 'OpenRouter API',
-          category: 'provider',
-          baseUrl: opts.baseUrl || 'https://openrouter.ai/api/v1',
-          apiKey: opts.apiKey || process.env.OPENROUTER_API_KEY,
-          defaultModel: resolvedModel,
-          extraHeaders: {
-            'HTTP-Referer': 'https://github.com/speedtest-ai',
-            'X-Title': 'speedtest-ai',
-          },
-        }),
-        model: resolvedModel,
-      };
-    }
-
-    case 'anthropic': {
-      const resolvedModel = model || 'claude-sonnet-4-20250514';
-      return {
-        adapter: createAnthropicAdapter({
-          apiKey: opts.apiKey,
-          baseUrl: opts.baseUrl,
-          defaultModel: resolvedModel,
-        }),
-        model: resolvedModel,
-      };
-    }
-
-    case 'gemini': {
-      const resolvedModel = model || 'gemini-2.5-flash';
-      return {
-        adapter: createGeminiAdapter({
-          apiKey: opts.apiKey,
-          baseUrl: opts.baseUrl,
-          defaultModel: resolvedModel,
-        }),
-        model: resolvedModel,
-      };
-    }
-
-    default: {
-      if (opts.baseUrl) {
-        const resolvedModel = model || 'default';
-        return {
-          adapter: createOpenAiCompatibleAdapter({
-            id,
-            name: `OpenAI-Compatible (${id})`,
-            category: 'provider',
-            baseUrl: opts.baseUrl,
-            apiKey: opts.apiKey || process.env.OPENAI_API_KEY,
-            defaultModel: resolvedModel,
-          }),
-          model: resolvedModel,
-        };
-      }
-      throw new Error(
-        `Unknown target "${opts.targetSpec}". Run "speedtest-ai detect" to see available targets.`
-      );
+      throw err;
     }
   }
+
+  const provider = findProviderEntry(id);
+  if (provider) return resolveProvider(provider, opts, model);
+
+  if (opts.baseUrl) {
+    const resolvedModel = model || 'default';
+    return {
+      adapter: createOpenAiCompatibleAdapter({
+        id,
+        name: `OpenAI-Compatible (${id})`,
+        category: 'provider',
+        baseUrl: opts.baseUrl,
+        apiKey: opts.apiKey || process.env.OPENAI_API_KEY,
+        defaultModel: resolvedModel,
+      }),
+      model: resolvedModel,
+      tier: 'verified',
+    };
+  }
+
+  throw new TargetFailedError(
+    `Unknown target "${opts.targetSpec}". Run "speedtest-ai detect" to see available targets.`,
+    { kind: 'not_found' }
+  );
 }

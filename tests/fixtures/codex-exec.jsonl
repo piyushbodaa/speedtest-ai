@@ -1,0 +1,4 @@
+{"type":"thread.started","thread_id":"id_1"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"1. Packet-switched networks divide application data into discrete packets, allowing many independent conversations to share physical links through statistical multiplexing."}}
+{"type":"turn.completed","usage":{"input_tokens":14459,"cached_input_tokens":11904,"cache_write_input_tokens":0,"output_tokens":823,"reasoning_output_tokens":0}}

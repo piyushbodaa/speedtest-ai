@@ -1,9 +1,11 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { performance } from 'node:perf_hooks';
+import { abortErrorFromSignal, TargetFailedError } from '../../core/errors.js';
+import { estimateTokens, StreamTokenCounter } from '../../core/tokenizer.js';
 import type { AdapterInvokeRequest, AdapterStreamChunk, SpeedtestAdapter } from '../../types.js';
-import { estimateTokens } from '../../core/tokenizer.js';
 
-export type DemoProfileName = 'frontier' | 'flash' | 'reasoning' | 'local';
+export type DemoProfileName = 'frontier' | 'flash' | 'reasoning' | 'local' | 'buffered';
 
 interface DemoProfileSpec {
   modelName: string;
@@ -13,6 +15,8 @@ interface DemoProfileSpec {
   prefillTps: number;
   toolLoopOverheadMs: number;
   hasThinking: boolean;
+  /** Emits the whole answer in one piece, like a CLI without a streaming mode. */
+  buffered?: boolean;
 }
 
 const DEMO_PROFILES: Record<DemoProfileName, DemoProfileSpec> = {
@@ -52,7 +56,23 @@ const DEMO_PROFILES: Record<DemoProfileName, DemoProfileSpec> = {
     toolLoopOverheadMs: 540,
     hasThinking: false,
   },
+  buffered: {
+    modelName: 'demo-buffered-b1',
+    bootMs: 60,
+    pingMs: 300,
+    decodeTps: 90,
+    prefillTps: 4000,
+    toolLoopOverheadMs: 600,
+    hasThinking: false,
+    buffered: true,
+  },
 };
+
+export const DEMO_PROFILE_NAMES = Object.keys(DEMO_PROFILES) as DemoProfileName[];
+
+export function isDemoProfileName(value: string): value is DemoProfileName {
+  return Object.prototype.hasOwnProperty.call(DEMO_PROFILES, value);
+}
 
 const DEMO_SENTENCES = [
   '1. Packet-switched networks divide application payloads into bounded datagrams carrying source and destination routing headers.',
@@ -75,20 +95,37 @@ const DEMO_SENTENCES = [
   '18. Continuous telemetry probes correlate jitter spikes with microburst queuing across regional transit hops.',
 ];
 
+const DEMO_CLAUSES = [
+  'while downstream monitors keep recording latency, loss and reordering for every hop',
+  'so that operators can compare measured behaviour against the capacity plan each week',
+  'which keeps throughput stable even when several heavy flows start at the same moment',
+  'and this is repeated continuously as link conditions change along the selected path',
+  'until the receiver confirms delivery and the sender can release its buffered copy',
+];
+
+/** Numbered sentences of about 20 words, as many as the download prompt asks for. */
+function demoAnswer(prompt: string): string {
+  const requested = Number(prompt.match(/from 1 to (\d+)/)?.[1] ?? DEMO_SENTENCES.length);
+  const count = Math.max(1, Math.min(200, requested));
+  const sentences: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const base = DEMO_SENTENCES[i % DEMO_SENTENCES.length].replace(/^\d+\.\s*/, '').replace(/\.$/, '');
+    sentences.push(`${i + 1}. ${base}, ${DEMO_CLAUSES[i % DEMO_CLAUSES.length]}.`);
+  }
+  return sentences.join(' ');
+}
+
 function abortableSleep(ms: number, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return Promise.reject(abortErrorFromSignal(signal));
   if (ms <= 0) return Promise.resolve();
   return new Promise((resolve, reject) => {
-    if (signal.aborted) {
-      reject(new DOMException('Aborted', 'AbortError'));
-      return;
-    }
     const timer = setTimeout(() => {
       signal.removeEventListener('abort', onAbort);
       resolve();
     }, ms);
     const onAbort = () => {
       clearTimeout(timer);
-      reject(new DOMException('Aborted', 'AbortError'));
+      reject(abortErrorFromSignal(signal));
     };
     signal.addEventListener('abort', onAbort, { once: true });
   });
@@ -96,79 +133,105 @@ function abortableSleep(ms: number, signal: AbortSignal): Promise<void> {
 
 function jitteredDelay(baseMs: number, spread = 0.14): number {
   const factor = 1 + (Math.random() * 2 - 1) * spread;
-  return Math.max(4, Math.round(baseMs * factor));
+  return Math.max(1, Math.round(baseMs * factor));
 }
 
-export function createDemoAdapter(defaultProfile: DemoProfileName = 'frontier'): SpeedtestAdapter {
+export interface DemoAdapterOptions {
+  /** Multiplies every simulated delay; values below 1 make the simulator faster (used by tests). */
+  timeScale?: number;
+}
+
+export function createDemoAdapter(
+  defaultProfile: DemoProfileName = 'frontier',
+  options: DemoAdapterOptions = {}
+): SpeedtestAdapter {
+  if (!isDemoProfileName(defaultProfile)) {
+    throw new TargetFailedError(
+      `Unknown demo profile "${defaultProfile}". Valid profiles: ${DEMO_PROFILE_NAMES.join(', ')}`,
+      { kind: 'model' }
+    );
+  }
+  const scale = options.timeScale ?? 1;
+
   return {
     id: 'demo',
     name: 'Demo Simulator',
     category: 'demo',
+    tier: 'verified',
     supportsToolLoop: true,
     defaultModel: defaultProfile,
+    notes: ['simulated data, not a real model'],
     async *stream(req: AdapterInvokeRequest): AsyncGenerator<AdapterStreamChunk, void, unknown> {
-      const profileKey = (
-        req.model && req.model in DEMO_PROFILES ? req.model : defaultProfile
-      ) as DemoProfileName;
-      const spec = DEMO_PROFILES[profileKey];
+      if (req.model && !isDemoProfileName(req.model)) {
+        throw new TargetFailedError(
+          `Unknown demo profile "${req.model}". Valid profiles: ${DEMO_PROFILE_NAMES.join(', ')}`,
+          { kind: 'model' }
+        );
+      }
+      const spec = DEMO_PROFILES[(req.model as DemoProfileName | undefined) ?? defaultProfile];
+      const sleep = (ms: number, spread?: number) =>
+        abortableSleep(jitteredDelay(ms * scale, spread), req.signal);
 
-      await abortableSleep(jitteredDelay(spec.bootMs, 0.1), req.signal);
+      yield { kind: 'start' };
+      await sleep(spec.bootMs, 0.1);
       yield { kind: 'init', model: spec.modelName };
 
-      const inputTokens = estimateTokens(req.prompt);
+      const inputTokens = Math.round(estimateTokens(req.prompt) * 1.2);
+      const usage = (text: string, extra: Partial<AdapterStreamChunk> = {}): AdapterStreamChunk => ({
+        kind: 'terminal',
+        model: spec.modelName,
+        inputTokens,
+        outputTokens: Math.round(estimateTokens(text) * 1.3),
+        ...extra,
+      });
 
       if (req.phase === 'ping') {
-        await abortableSleep(jitteredDelay(spec.pingMs - spec.bootMs, 0.12), req.signal);
+        await sleep(spec.pingMs - spec.bootMs, 0.12);
         yield { kind: 'text', text: 'PONG' };
-        yield { kind: 'usage', model: spec.modelName, inputTokens, outputTokens: 1 };
+        yield usage('PONG');
         return;
       }
 
       if (req.phase === 'upload') {
-        const prefillMs = Math.max(120, Math.round((inputTokens / spec.prefillTps) * 1000));
-        await abortableSleep(jitteredDelay(prefillMs, 0.08), req.signal);
-        const match = req.prompt.match(/Entry #(\d+):[^\n]*marker=(VERIFY-[A-Z0-9]+)/);
-        const expected = match?.[2] ?? 'VERIFY-000000';
+        const prefillMs = Math.max(120, Math.round((estimateTokens(req.prompt) / spec.prefillTps) * 1000));
+        await sleep(spec.pingMs - spec.bootMs + prefillMs, 0.05);
+        const expected = req.prompt.match(/marker=(VERIFY-[A-Z0-9]+)/)?.[1] ?? 'VERIFY-000000';
         yield { kind: 'text', text: expected };
-        yield {
-          kind: 'usage',
-          model: spec.modelName,
-          inputTokens,
-          outputTokens: estimateTokens(expected),
-          promptEvalDurationMs: prefillMs,
-        };
+        yield usage(expected);
         return;
       }
 
       if (req.phase === 'tool_loop') {
-        await abortableSleep(jitteredDelay(spec.pingMs * 0.6, 0.1), req.signal);
+        await sleep(spec.pingMs * 0.6, 0.1);
         yield { kind: 'tool_call', toolName: 'Read' };
         let content = 'PROBE-DEMO';
         if (req.cwd) {
           try {
             content = (await fs.readFile(path.join(req.cwd, 'probe.txt'), 'utf8')).trim();
           } catch {
-            // Keep fallback
+            // Keep the placeholder; the run then fails verification, as a real CLI would.
           }
         }
-        await abortableSleep(jitteredDelay(spec.toolLoopOverheadMs, 0.1), req.signal);
+        await sleep(spec.toolLoopOverheadMs, 0.1);
         yield { kind: 'tool_result', toolName: 'Read', text: content };
         yield { kind: 'text', text: content };
-        yield {
-          kind: 'usage',
-          model: spec.modelName,
-          inputTokens: inputTokens + 32,
-          outputTokens: estimateTokens(content),
-        };
+        yield usage(content, { inputTokens: inputTokens + 32 });
         return;
       }
 
-      // Download phase: steady token streaming
-      await abortableSleep(jitteredDelay(spec.pingMs - spec.bootMs, 0.12), req.signal);
+      await sleep(spec.pingMs - spec.bootMs, 0.12);
+      const fullText = demoAnswer(req.prompt);
 
-      let totalOutput = 0;
+      if (spec.buffered) {
+        await sleep((estimateTokens(fullText) / spec.decodeTps) * 1000, 0.05);
+        yield { kind: 'text', text: fullText };
+        yield usage(fullText);
+        return;
+      }
 
+      let reasoningTokens = 0;
       if (spec.hasThinking) {
+        yield { kind: 'activity' };
         const thoughtWords =
           'Planning concise numbered explanation covering framing, switching, optical modulation, routing, and congestion control.'.split(
             ' '
@@ -176,29 +239,30 @@ export function createDemoAdapter(defaultProfile: DemoProfileName = 'frontier'):
         for (const word of thoughtWords) {
           const piece = `${word} `;
           const tok = estimateTokens(piece);
-          totalOutput += tok;
+          reasoningTokens += tok;
           yield { kind: 'thinking', text: piece };
-          await abortableSleep(jitteredDelay((tok / spec.decodeTps) * 1000, 0.25), req.signal);
+          await sleep((tok / spec.decodeTps) * 1000, 0.25);
         }
       }
 
-      const fullText = DEMO_SENTENCES.join(' ');
       const words = fullText.split(' ');
-      // Emit small 1-2 word chunks to mimic real SSE token frames
+      const counter = new StreamTokenCounter();
+      const streamStartMs = performance.now();
+      const msPerToken = (1000 / spec.decodeTps) * scale;
+      // Small 1-2 word pieces, like real SSE token frames, paced against an absolute timeline so
+      // timer overshoot does not accumulate and the simulated rate matches the profile.
       for (let i = 0; i < words.length; i += 2) {
         const slice = words.slice(i, i + 2).join(' ') + (i + 2 < words.length ? ' ' : '');
-        const tok = estimateTokens(slice);
-        totalOutput += tok;
+        const added = counter.push(slice);
+        if (i > 0) {
+          const wobble = (Math.random() * 2 - 1) * 0.28 * added * msPerToken;
+          const dueMs = streamStartMs + counter.total * msPerToken + wobble;
+          await abortableSleep(Math.max(0, dueMs - performance.now()), req.signal);
+        }
         yield { kind: 'text', text: slice };
-        await abortableSleep(jitteredDelay((tok / spec.decodeTps) * 1000, 0.28), req.signal);
       }
 
-      yield {
-        kind: 'usage',
-        model: spec.modelName,
-        inputTokens,
-        outputTokens: totalOutput,
-      };
+      yield usage(fullText, reasoningTokens > 0 ? { reasoningTokens } : {});
     },
   };
 }

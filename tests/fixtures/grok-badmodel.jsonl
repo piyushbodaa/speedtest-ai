@@ -1,0 +1,2 @@
+{"type":"system","subtype":"init","model":"no-such-model-xyz","permissionMode":"default"}
+{"type":"result","subtype":"error_during_execution","is_error":true,"duration_ms":0,"duration_api_ms":0,"num_turns":0,"stop_reason":null,"total_cost_usd":0.0,"usage":{"input_tokens":0,"output_tokens":0,"cache_read_input_tokens":0,"cache_creation_input_tokens":0},"errors":["Couldn't set model 'no-such-model-xyz': Invalid params: \"unknown model id\". Run 'grok models' to see available models."]}

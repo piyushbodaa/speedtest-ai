@@ -1,11 +1,11 @@
 {
   "name": "speedtest-ai",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Live speedometer CLI and streaming benchmark engine for AI models and agent harnesses.",
   "type": "module",
   "bin": {
-    "speedtest-ai": "./dist/cli.js",
-    "aispeed": "./dist/cli.js"
+    "speedtest-ai": "./dist/cli.cjs",
+    "aispeed": "./dist/cli.cjs"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -20,10 +20,12 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean && tsup",
     "dev": "tsx src/cli.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "release:bundle": "node scripts/release.mjs"
   },
   "keywords": [
     "ai",

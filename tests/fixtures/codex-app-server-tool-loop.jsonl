@@ -1,0 +1,24 @@
+{"id":1,"result":{"platformFamily":"unix","platformOs":"linux"}}
+{"id":2,"result":{"thread":{"id":"id_1","ephemeral":true,"modelProvider":"openai","model":"gpt-6.1-sol","status":{"type":"idle"}}}}
+{"method":"thread/started","params":{"thread":{"id":"id_1","ephemeral":true,"modelProvider":"openai","model":"gpt-6.1-sol","status":{"type":"idle"}}}}
+{"id":3,"result":{"turn":{"id":"id_2","rootTurnId":"id_2","items":[],"itemsView":"notLoaded","status":"inProgress","error":null,"durationMs":null}}}
+{"method":"thread/status/changed","params":{"threadId":"id_1","status":{"type":"active","activeFlags":[]}}}
+{"method":"turn/started","params":{"threadId":"id_1","turn":{"id":"id_2","rootTurnId":"id_2","items":[],"itemsView":"notLoaded","status":"inProgress","error":null,"durationMs":null}}}
+{"method":"item/started","params":{"item":{"type":"userMessage","id":"id_3","clientId":null,"content":[{"type":"text","text":"Use your file reading tool to read the file named probe.txt in the current directory and reply with ONLY its exact text content, nothing else.","text_elements":[]}]},"threadId":"id_1","turnId":"id_2"}}
+{"method":"item/completed","params":{"item":{"type":"userMessage","id":"id_3","clientId":null,"content":[{"type":"text","text":"Use your file reading tool to read the file named probe.txt in the current directory and reply with ONLY its exact text content, nothing else.","text_elements":[]}]},"threadId":"id_1","turnId":"id_2","contentTokenCount":null}}
+{"method":"item/started","params":{"item":{"type":"commandExecution","id":"exec_1","pluginId":null,"scriptPath":null,"command":"/usr/bin/bash -lc 'cat probe.txt'","source":"unifiedExecStartup","status":"inProgress","commandActions":[{"type":"read","command":"cat probe.txt","name":"probe.txt"}],"aggregatedOutput":null,"exitCode":null,"durationMs":null},"threadId":"id_1","turnId":"id_2"}}
+{"method":"item/completed","params":{"item":{"type":"commandExecution","id":"exec_1","pluginId":null,"scriptPath":null,"command":"/usr/bin/bash -lc 'cat probe.txt'","source":"unifiedExecStartup","status":"completed","commandActions":[{"type":"read","command":"cat probe.txt","name":"probe.txt"}],"aggregatedOutput":"PROBE-66A1255B","exitCode":0,"durationMs":0},"threadId":"id_1","turnId":"id_2","contentTokenCount":null}}
+{"method":"thread/tokenUsage/updated","params":{"threadId":"id_1","turnId":"id_2","tokenUsage":{"total":{"totalTokens":14441,"inputTokens":14406,"cachedInputTokens":11904,"cacheWriteInputTokens":0,"outputTokens":35,"reasoningOutputTokens":0},"last":{"totalTokens":14441,"inputTokens":14406,"cachedInputTokens":11904,"cacheWriteInputTokens":0,"outputTokens":35,"reasoningOutputTokens":0},"modelContextWindow":475000}}}
+{"method":"item/started","params":{"item":{"type":"agentMessage","moderation":null,"id":"msg_1","text":"","phase":"final_answer","memoryCitation":null,"delivery":null,"questions":null},"threadId":"id_1","turnId":"id_2"}}
+{"method":"item/agentMessage/delta","params":{"threadId":"id_1","turnId":"id_2","itemId":"msg_1","delta":"PRO"}}
+{"method":"item/agentMessage/delta","params":{"threadId":"id_1","turnId":"id_2","itemId":"msg_1","delta":"BE"}}
+{"method":"item/agentMessage/delta","params":{"threadId":"id_1","turnId":"id_2","itemId":"msg_1","delta":"-"}}
+{"method":"item/agentMessage/delta","params":{"threadId":"id_1","turnId":"id_2","itemId":"msg_1","delta":"66"}}
+{"method":"item/agentMessage/delta","params":{"threadId":"id_1","turnId":"id_2","itemId":"msg_1","delta":"A"}}
+{"method":"item/agentMessage/delta","params":{"threadId":"id_1","turnId":"id_2","itemId":"msg_1","delta":"125"}}
+{"method":"item/agentMessage/delta","params":{"threadId":"id_1","turnId":"id_2","itemId":"msg_1","delta":"5"}}
+{"method":"item/agentMessage/delta","params":{"threadId":"id_1","turnId":"id_2","itemId":"msg_1","delta":"B"}}
+{"method":"item/completed","params":{"item":{"type":"agentMessage","moderation":null,"id":"msg_1","text":"PROBE-66A1255B","phase":"final_answer","memoryCitation":null,"delivery":null,"questions":null},"threadId":"id_1","turnId":"id_2","contentTokenCount":9}}
+{"method":"thread/tokenUsage/updated","params":{"threadId":"id_1","turnId":"id_2","tokenUsage":{"total":{"totalTokens":28925,"inputTokens":28878,"cachedInputTokens":26112,"cacheWriteInputTokens":0,"outputTokens":47,"reasoningOutputTokens":0},"last":{"totalTokens":14484,"inputTokens":14472,"cachedInputTokens":14208,"cacheWriteInputTokens":0,"outputTokens":12,"reasoningOutputTokens":0},"modelContextWindow":475000}}}
+{"method":"thread/status/changed","params":{"threadId":"id_1","status":{"type":"idle"}}}
+{"method":"turn/completed","params":{"threadId":"id_1","turn":{"id":"id_2","rootTurnId":"id_2","items":[{"type":"agentMessage","moderation":null,"id":"msg_1","text":"PROBE-66A1255B","phase":"final_answer","memoryCitation":null,"delivery":null,"questions":null}],"itemsView":"summary","status":"completed","error":null,"durationMs":6220}}}

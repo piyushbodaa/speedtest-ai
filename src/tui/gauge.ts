@@ -1,13 +1,21 @@
+import { fitNameAndModel, formatMs, formatTps } from '../core/card.js';
 import type { BenchmarkMode, GaugeTick, PhaseId, PhaseResult } from '../types.js';
-import { formatMs, formatTps } from '../core/card.js';
-import { c, colorByTps, padRightVisible, truncateVisible, visibleLength } from './ansi.js';
+import { c, colorByTps, displayWidth, fitVisible, sanitizeInline, tailToWidth, truncateAnsi } from './ansi.js';
 
 const SPARK_BLOCKS = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
+/** The live frame always has this many lines, so a redraw can move up by a known amount. */
+export const FRAME_HEIGHT = 15;
+export const MAX_FRAME_WIDTH = 68;
+/** Below this size the live gauge is replaced by plain line output. */
+export const MIN_FRAME_COLUMNS = 40;
+export const MIN_FRAME_ROWS = 16;
+
 export function renderSparkline(samples: number[], width = 28): string {
   const sliced = samples.slice(-width);
-  const maxVal = Math.max(20, ...sliced);
+  // Headroom above the fastest sample, so a steady stream does not render as a solid block.
+  const maxVal = Math.max(20, ...sliced) * 1.2;
   const padded: number[] = Array(Math.max(0, width - sliced.length))
     .fill(0)
     .concat(sliced);
@@ -70,6 +78,8 @@ export interface LiveDashboardState {
   phaseIndex: number;
   phaseTotal: number;
   phaseLabel: string;
+  /** Set while `--runs N` is repeating the download. */
+  repeat?: { run: number; of: number };
   tick?: GaugeTick;
   tpsHistory: number[];
   completedPhases: Partial<Record<PhaseId, PhaseResult>>;
@@ -77,69 +87,110 @@ export interface LiveDashboardState {
   frameCounter: number;
 }
 
-export function renderDashboardFrame(state: LiveDashboardState, boxWidth = 68): string {
-  const inner = boxWidth - 4;
-  const line = (content: string) => {
-    const clipped = visibleLength(content) > inner ? truncateVisible(content, inner) : content;
-    return `│ ${padRightVisible(clipped, inner)} │`;
-  };
-  const hr = `├${'─'.repeat(boxWidth - 2)}┤`;
-  const top = `┌${'─'.repeat(boxWidth - 2)}┐`;
-  const bot = `└${'─'.repeat(boxWidth - 2)}┘`;
+function pingValue(state: LiveDashboardState): string {
+  const ping = state.completedPhases.ping;
+  const download = state.completedPhases.download;
+  if (download?.isBuffered) return 'n/a (buffered)';
+  if (ping) return ping.ttftMs === null ? 'n/a' : formatMs(ping.ttftMs);
+  if (download) return download.ttftMs === null ? 'n/a' : formatMs(download.ttftMs);
+  if (typeof state.tick?.ttftMs === 'number') return formatMs(state.tick.ttftMs);
+  return '…';
+}
+
+function downloadValue(state: LiveDashboardState): { text: string; tps: number } {
+  const download = state.completedPhases.download;
+  if (download) {
+    if (download.decodeTps !== null) return { text: formatTps(download.decodeTps), tps: download.decodeTps };
+    return { text: `${formatTps(download.e2eTps)} (E2E)`, tps: download.e2eTps };
+  }
+  const avg = state.tick?.averageTps ?? 0;
+  if (state.currentPhase === 'download' && avg > 0) return { text: `${formatTps(avg)} (live)`, tps: avg };
+  return { text: '…', tps: 0 };
+}
+
+function secondaryValue(state: LiveDashboardState, phase: 'upload' | 'tool_loop'): string {
+  const done = state.completedPhases[phase];
+  if (done) {
+    if (phase === 'tool_loop') return formatMs(done.durationMs);
+    if (typeof done.prefillTps === 'number') return formatTps(done.prefillTps);
+    return done.ttftMs === null ? 'done' : `TTFT ${formatMs(done.ttftMs)}`;
+  }
+  if (state.skippedPhases[phase]) return 'failed';
+  if (!state.phases.includes(phase)) return '—';
+  return state.currentPhase === phase ? 'running' : 'pending';
+}
+
+function streamLine(state: LiveDashboardState, room: number): string {
+  const tick = state.tick;
+  const status = (text: string) => `${c.dim('Status:')} ${c.gray(truncateAnsi(text, Math.max(1, room - 8)))}`;
+  if (!tick) return status('starting…');
+  const seconds = `${(tick.elapsedMs / 1000).toFixed(1)}s`;
+  if (tick.stage === 'streaming' && tick.previewText) {
+    const preview = tailToWidth(sanitizeInline(tick.previewText), Math.max(1, room - 8));
+    return `${c.dim('Stream:')} ${c.gray(preview)}`;
+  }
+  if (tick.statusHint) return status(sanitizeInline(tick.statusHint));
+  if (tick.stage === 'booting') return status(`starting the CLI… ${seconds}`);
+  if (tick.stage === 'thinking') {
+    return status(
+      tick.thinkingTokens > 0 ? `model is thinking… ${tick.thinkingTokens} tok, ${seconds}` : `model is thinking… ${seconds}`
+    );
+  }
+  if (tick.stage === 'streaming') return status(`streaming… ${seconds}`);
+  return status(`waiting for the first token… ${seconds}`);
+}
+
+/**
+ * One frame of the live gauge: exactly FRAME_HEIGHT lines, each exactly `boxWidth` cells wide.
+ * The bar and sparkline scale with the width; nothing is ever wider than the box.
+ */
+export function renderDashboardFrame(state: LiveDashboardState, boxWidth = MAX_FRAME_WIDTH): string {
+  const width = Math.max(MIN_FRAME_COLUMNS - 1, Math.min(MAX_FRAME_WIDTH, Math.floor(boxWidth)));
+  const inner = width - 4;
+  const line = (content: string) => `│ ${fitVisible(content, inner)} │`;
+  const hr = `├${'─'.repeat(width - 2)}┤`;
+  const top = `┌${'─'.repeat(width - 2)}┐`;
+  const bot = `└${'─'.repeat(width - 2)}┘`;
+
+  const brand = inner >= 50 ? 'SPEEDTEST.AI' : 'AI';
+  const modeTag = `[${state.mode.toUpperCase()}]`;
+  const title = fitNameAndModel(
+    state.targetName,
+    state.model,
+    inner - displayWidth(brand) - 2 - displayWidth(modeTag) - 2
+  );
+  const header = `${c.bold(c.brightCyan(brand))}  ${c.white(title.name)} ${c.gray(`(${title.model})`)}  ${c.dim(modeTag)}`;
 
   const spinner = c.brightCyan(SPINNER_FRAMES[state.frameCounter % SPINNER_FRAMES.length]);
-  const header = `${c.bold(c.brightCyan('SPEEDTEST.AI'))}  ${c.white(state.targetName)} ${c.gray(`(${state.model})`)}  ${c.dim(`[${state.mode.toUpperCase()}]`)}`;
-
-  const phaseBanner = `${spinner} ${c.bold(`Phase ${state.phaseIndex}/${state.phaseTotal}:`)} ${state.phaseLabel}`;
+  const repeat = state.repeat && state.repeat.of > 1 ? c.dim(`  ·  run ${state.repeat.run}/${state.repeat.of}`) : '';
+  const phaseBanner = `${spinner} ${c.bold(`Phase ${state.phaseIndex}/${state.phaseTotal}:`)} ${sanitizeInline(state.phaseLabel)}${repeat}`;
 
   const currentTps = state.tick?.currentTps ?? 0;
   const peakTps = state.tick?.peakTps ?? 0;
-  const avgTps = state.tick?.averageTps ?? 0;
   const tokens = state.tick?.tokensGenerated ?? 0;
   const elapsedSec = ((state.tick?.elapsedMs ?? 0) / 1000).toFixed(1);
 
   const dialLines = renderArcDial(currentTps, 200);
-  const barLine = `${renderSpeedGaugeBar(currentTps, 200, 34)}  ${c.dim('Peak')} ${colorByTps(peakTps, formatTps(peakTps))}`;
-  const sparkLine = `${c.dim('Live TPS:')} ${renderSparkline(state.tpsHistory, 30)}  ${c.dim(`${tokens} tok · ${elapsedSec}s`)}`;
 
-  const pingPhase = state.completedPhases.ping;
-  const dlPhase = state.completedPhases.download;
-  const ulPhase = state.completedPhases.upload;
-  const toolPhase = state.completedPhases.tool_loop;
+  const peakText = peakTps > 0 ? formatTps(peakTps) : '—';
+  const barWidth = Math.max(8, Math.min(40, inner - 2 - 7 - displayWidth(peakText)));
+  const barLine = `${renderSpeedGaugeBar(currentTps, 200, barWidth)}  ${c.dim('Peak')} ${peakTps > 0 ? colorByTps(peakTps, peakText) : c.gray(peakText)}`;
 
-  const pingVal = pingPhase
-    ? formatMs(pingPhase.ttftMs)
-    : state.tick?.ttftMs !== undefined
-      ? formatMs(state.tick.ttftMs)
-      : '…';
-  const dlVal = dlPhase
-    ? formatTps(dlPhase.decodeTps)
-    : state.currentPhase === 'download' && avgTps > 0
-      ? `${formatTps(avgTps)} (live)`
-      : '…';
-  const ulVal = ulPhase
-    ? formatTps(ulPhase.prefillTps)
-    : state.skippedPhases.upload
-      ? 'skipped'
-      : state.phases.includes('upload')
-        ? 'pending'
-        : '—';
-  const loopVal = toolPhase
-    ? formatMs(toolPhase.durationMs)
-    : state.skippedPhases.tool_loop
-      ? 'skipped'
-      : state.phases.includes('tool_loop')
-        ? 'pending'
-        : '—';
+  const counters = `${tokens} tok · ${elapsedSec}s`;
+  const sparkLabel = inner >= 50 ? 'Live TPS:' : 'TPS:';
+  const sparkWidth = Math.max(4, Math.min(30, inner - displayWidth(sparkLabel) - 3 - displayWidth(counters)));
+  const sparkLine = `${c.dim(sparkLabel)} ${renderSparkline(state.tpsHistory, sparkWidth)}  ${c.dim(counters)}`;
 
-  const row1 = `${c.dim('PING (TTFT):')} ${c.white(pingVal.padEnd(14))} ${c.dim('DOWNLOAD (GEN):')} ${colorByTps(dlPhase?.decodeTps ?? avgTps, dlVal)}`;
-  const row2 = `${c.dim('UPLOAD (PRE):')} ${c.white(ulVal.padEnd(13))} ${c.dim('AGENT LOOP:')} ${c.white(loopVal)}`;
-
-  const streamText = state.tick?.previewText
-    ? `${c.dim('Stream:')} ${c.gray(state.tick.previewText)}`
-    : state.tick?.statusHint
-      ? `${c.dim('Status:')} ${c.gray(state.tick.statusHint)}`
-      : `${c.dim('Stream:')} ${c.gray('waiting for first token...')}`;
+  const wide = inner >= 60;
+  const cellWidth = Math.floor((inner - 1) / 2);
+  const cell = (label: string, value: string, paint: (s: string) => string) => {
+    const head = `${label} `;
+    const room = Math.max(1, cellWidth - displayWidth(head));
+    return fitVisible(`${c.dim(head)}${paint(truncateAnsi(value, room))}`, cellWidth);
+  };
+  const download = downloadValue(state);
+  const row1 = `${cell(wide ? 'PING (TTFT):' : 'TTFT:', pingValue(state), c.white)} ${cell(wide ? 'DOWNLOAD:' : 'DOWN:', download.text, (s) => (download.tps > 0 ? colorByTps(download.tps, s) : c.white(s)))}`;
+  const row2 = `${cell(wide ? 'UPLOAD:' : 'UP:', secondaryValue(state, 'upload'), c.white)} ${cell(wide ? 'AGENT LOOP:' : 'LOOP:', secondaryValue(state, 'tool_loop'), c.white)}`;
 
   return [
     top,
@@ -155,7 +206,7 @@ export function renderDashboardFrame(state: LiveDashboardState, boxWidth = 68): 
     line(row1),
     line(row2),
     hr,
-    line(streamText),
+    line(streamLine(state, inner)),
     bot,
   ].join('\n');
 }

@@ -1,0 +1,27 @@
+{"payload_type":"runtime.command.accepted","payload":{"command_kind":"turn.submit","kind":"command_accepted"}}
+{"payload_type":"session.run.linked","payload":{"kind":"session_run_linked"}}
+{"payload_type":"run.model.configured","payload":{"display_label":"muse-spark-1.3","kind":"run_model_configured","model_id":"muse-spark-1.3","provider_id":"meta","source":"startup"}}
+{"payload_type":"turn.input.user","payload":{"kind":"turn_input_user","prompt":"Write numbered plain-text sentences 1 to 6 about how TCP congestion control works, each about 15 words. Do not use tools."}}
+{"payload_type":"run.lifecycle.started","payload":{"kind":"run_started","prompt":"Write numbered plain-text sentences 1 to 6 about how TCP congestion control works, each about 15 words. Do not use tools."}}
+{"payload_type":"task.stream.linked","payload":{"kind":"task_stream_linked"}}
+{"payload_type":"task.lifecycle.proposed","payload":{"event":{"kind":"proposed","task_kind":"model.meta.response"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.accepted","payload":{"event":{"kind":"accepted"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.scheduled","payload":{"event":{"kind":"scheduled"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.side_effect_intent","payload":{"event":{"kind":"side_effect_intent","operation":"model.meta.response","policy_decision":"not_applicable"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.started","payload":{"event":{"kind":"started"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.status","payload":{"event":{"details":{"facets":[{"attempt":1,"kind":"external_attempt","max_attempts":10,"operation":"model.response","system":"meta"},{"detail":{"kind":"provider","provider":"meta"},"kind":"producer"}],"phase":"opening_stream"},"kind":"status","message":"opening meta model stream attempt 1/10"},"kind":"task_lifecycle"}}
+{"payload_type":"run.output.delta","payload":{"kind":"run_output_delta","text":"1. TCP congestion control"}}
+{"payload_type":"run.output.delta","payload":{"kind":"run_output_delta","text":" prevents network overload by adjusting sending rate based on perceived congestion signals"}}
+{"payload_type":"run.output.delta","payload":{"kind":"run_output_delta","text":".\n2. Slow start initially increases congestion window exponentially until packet"}}
+{"payload_type":"run.output.delta","payload":{"kind":"run_output_delta","text":" loss or threshold indicates capacity limits.\n3. Congestion avoidance"}}
+{"payload_type":"run.output.delta","payload":{"kind":"run_output_delta","text":" then grows window linearly, carefully probing for additional available bandwidth without"}}
+{"payload_type":"run.output.delta","payload":{"kind":"run_output_delta","text":" causing collapse.\n4. Fast retransmit detects three duplicate acknowled"}}
+{"payload_type":"run.output.delta","payload":{"kind":"run_output_delta","text":"gments and resends lost segments without waiting for timeout expiration.\n"}}
+{"payload_type":"run.output.delta","payload":{"kind":"run_output_delta","text":"5. Fast recovery halves congestion window after loss, then gradually"}}
+{"payload_type":"run.output.delta","payload":{"kind":"run_output_delta","text":" increases it as new acknowledgments arrive.\n6. Timeout expiration"}}
+{"payload_type":"run.output.delta","payload":{"kind":"run_output_delta","text":" triggers slow start again, drastically reducing window to restore stability after"}}
+{"payload_type":"run.output.delta","payload":{"kind":"run_output_delta","text":" severe congestion."}}
+{"payload_type":"task.lifecycle.status","payload":{"event":{"details":{"facets":[{"attempt":1,"error_kind":"stream_succeeded","kind":"external_attempt","max_attempts":10,"operation":"model.response","system":"meta"},{"detail":{"kind":"provider","model":"muse-spark-1.3-contributor","provider":"meta","stream":{"bytes_before_first_event":0,"bytes_read":215678,"eof":false,"eof_buffer_len":0,"last_wire_event_type":"response.completed","request_gzip":false,"request_logical_bytes":95900,"request_wire_bytes":95900,"time_to_first_event_ms":476,"time_to_first_token_ms":4279,"wire_events_seen":25}},"kind":"producer"}],"phase":"stream_succeeded"},"kind":"status","message":"completed meta model stream attempt 1/10"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.completed","payload":{"event":{"kind":"completed"},"kind":"task_lifecycle"}}
+{"payload_type":"run.usage","payload":{"calls":1,"cancelled_calls":0,"children_included":false,"completed_calls":1,"failed_calls":0,"kind":"run_usage","models":[{"cached_tokens":0,"calls":1,"input_tokens":19999,"model":"muse-spark-1.3","output_tokens":741,"reasoning_tokens":600}]}}
+{"payload_type":"run.terminal.completed","payload":{"kind":"run_terminal","reason":null,"terminal":"completed","text":"1. TCP congestion control prevents network overload by adjusting sending rate based on perceived congestion signals.\n2. Slow start initially increases congestion window exponentially until packet loss or threshold indicates capacity limits.\n3. Congestion avoidance then grows window linearly, carefully probing for additional available bandwidth without causing collapse.\n4. Fast retransmit detects three duplicate acknowledgments and resends lost segments without waiting for timeout expiration.\n5. Fast recovery halves congestion window after loss, then gradually increases it as new acknowledgments arrive.\n6. Timeout expiration triggers slow start again, drastically reducing window to restore stability after severe congestion."}}
