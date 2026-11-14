@@ -39,6 +39,7 @@ import {
   MIN_FRAME_ROWS,
   renderDashboardFrame,
 } from './gauge.js';
+import { brandPaint } from './brand.js';
 import { eraseLinesAbove, hideCursor, holdRawInput, maxLineWidth, out, releaseRawInput, showCursor, termSize } from './io.js';
 
 export type OutputMode = 'tui' | 'plain' | 'json' | 'jsonl' | 'silent';
@@ -271,6 +272,7 @@ export async function consumeSpeedtestEvents(
       }
       if (ev.type === 'run:start') {
         state = {
+          targetId: ev.target,
           targetName: ev.targetName,
           model: ev.model || 'configured model',
           mode: ev.mode,
@@ -473,7 +475,9 @@ export function renderCompareTable(results: SpeedtestResult[], options: Leaderbo
   if (stacked) {
     for (const row of rows) {
       const s = row.result.summary;
-      lines.push(truncateAnsi(`${c.bold(row.rank.padEnd(3))} ${c.white(row.label)}`, width));
+      lines.push(
+        truncateAnsi(`${c.bold(row.rank.padEnd(3))} ${(brandPaint(row.result.targetId) ?? c.white)(row.label)}`, width)
+      );
       lines.push(
         truncateAnsi(
           `    ${c.bold(colorByTps(s.rankTps, row.tps))} ${c.dim(`· TTFT ${row.ttft} ·`)} ${gradePaint(c, s.grade)(row.grade)}`,
@@ -488,7 +492,12 @@ export function renderCompareTable(results: SpeedtestResult[], options: Leaderbo
     const summaryOf = (row: number) => rows[row].result.summary;
     const columns: TableColumn[] = [
       { header: '#', values: rows.map((r) => r.rank), paint: (t) => c.bold(t) },
-      { header: 'TARGET', values: rows.map((r) => r.label), paint: (t) => c.white(t), flex: { min: 12, max: 40 } },
+      {
+        header: 'TARGET',
+        values: rows.map((r) => r.label),
+        paint: (t, row) => (brandPaint(rows[row].result.targetId) ?? c.white)(t),
+        flex: { min: 12, max: 40 },
+      },
       {
         header: 'TOK/S',
         values: rows.map((r) => r.tps),

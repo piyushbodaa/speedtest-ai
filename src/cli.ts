@@ -8,7 +8,9 @@ import {
 } from './adapters/catalog.js';
 import { createDemoAdapter } from './adapters/providers/demo.js';
 import { parseTargetSpec, resolveAdapter } from './adapters/registry.js';
+import { spawnSync } from 'node:child_process';
 import { killAllChildren } from './adapters/utils/spawn.js';
+import { brandPaint } from './tui/brand.js';
 import {
   DEFAULT_CARD_PATH,
   parseCliArgs,
@@ -42,7 +44,7 @@ import {
   type TargetInfo,
 } from './types.js';
 
-const VERSION = '0.3.0';
+const VERSION = '0.4.0';
 
 const EXIT_OK = 0;
 const EXIT_FAILED = 1;
@@ -64,6 +66,7 @@ USAGE
   speedtest-ai demo                   Simulated run, no model is called
   speedtest-ai detect [--json]        List what is installed and usable
   speedtest-ai history                Show saved results (--limit N, --clear)
+  speedtest-ai update                 Install the latest version over this one
 
   "all", "run" and "compare" send real prompts and spend real model tokens.
 
@@ -378,7 +381,8 @@ async function runBatch(entries: BatchEntry[], run: RunOptions, mode: BenchmarkM
     const entry = entries[i];
     started = i + 1;
     if (human) {
-      const head = `${c.bold(c.brightCyan(`▶ [${i + 1}/${entries.length}]`))} ${c.bold(sanitizeInline(entry.name))} ${c.dim(`(${entry.label}) [${mode}${run.runs > 1 ? `, ${run.runs} runs` : ''}]`)}`;
+      const accent = brandPaint(entry.id) ?? c.brightCyan;
+      const head = `${c.bold(accent(`▶ [${i + 1}/${entries.length}]`))} ${c.bold(accent(sanitizeInline(entry.name)))} ${c.dim(`(${entry.label}) [${mode}${run.runs > 1 ? `, ${run.runs} runs` : ''}]`)}`;
       out(`\n${truncateAnsi(head, maxLineWidth())}\n`);
     }
 
@@ -523,6 +527,20 @@ async function runDefault(run: RunOptions): Promise<number> {
   return runSingle(targetId, run, mode);
 }
 
+/** Re-runs the hosted installer over this install; it verifies the checksum before replacing anything. */
+function runUpdate(): number {
+  const base = (process.env.SPEEDTEST_AI_BASE_URL || 'https://krutrimmulyankan.in/speedtest').replace(/\/+$/, '');
+  out(`Updating speedtest-ai (currently v${VERSION}) from ${base} …\n`);
+  const script = 's=$(curl -fsSL "$1/install.sh") || exit 1; printf "%s\\n" "$s" | sh';
+  const res = spawnSync('sh', ['-c', script, 'sh', base], {
+    stdio: 'inherit',
+    env: { ...process.env, SPEEDTEST_NO_AUTO_RUN: '1' },
+  });
+  if (res.status === 0) return EXIT_OK;
+  printError('update failed. You can also re-run the install command from the website.');
+  return 1;
+}
+
 async function dispatch(command: ParsedCommand): Promise<number> {
   switch (command.kind) {
     case 'help':
@@ -531,6 +549,8 @@ async function dispatch(command: ParsedCommand): Promise<number> {
     case 'version':
       out(`speedtest-ai v${VERSION}\n`);
       return EXIT_OK;
+    case 'update':
+      return runUpdate();
     case 'detect': {
       const targets = await detectTargets();
       if (command.json) {

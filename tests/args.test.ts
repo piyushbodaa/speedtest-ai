@@ -184,3 +184,9 @@ describe('rejected command lines', () => {
     expect(usageError('run', '-t', 'claude,codex')).toContain('compare -t a,b');
   });
 });
+
+describe('update', () => {
+  it('parses the update command', () => {
+    expect(parse('update')).toEqual({ kind: 'update' });
+  });
+});

@@ -5,7 +5,7 @@ agent CLIs installed on your machine (`claude`, `codex`, `agy`, `grok`, `muse`, 
 the same prompt, and reports a time to first token and a tokens-per-second figure that can be
 compared between them.
 
-Version 0.3.0. Node.js 20 or newer, no runtime dependencies.
+Version 0.4.0. Node.js 20 or newer, no runtime dependencies.
 
 > `all`, `run` and `compare` call the real CLIs with your accounts. They send real prompts and
 > **spend real model tokens**. `demo` and `detect` do not call any model.
@@ -29,6 +29,15 @@ curl -fsSL https://krutrimmulyankan.in/speedtest/install.sh | SPEEDTEST_NO_AUTO_
 ```
 
 `INSTALL_DIR=/some/dir` installs somewhere else.
+
+### Update
+
+```sh
+speedtest-ai update
+```
+
+This re-runs the hosted installer over the existing install (checksum verified, no benchmark is
+started). On v0.3.0 or older, which has no `update` command, run the install command again.
 
 ### Uninstall
 
@@ -243,7 +252,8 @@ The codes are the same with `--json` and `--jsonl`.
 
 The live view is a speedometer: one dial with the current tokens per second in large digits, and
 ping, peak and token count underneath. It needs at least 40 columns and 20 rows; on a smaller terminal, with `--plain`, or when the output is not a terminal, progress is
-printed line by line. All output fits 80 columns. `NO_COLOR` turns colour off.
+printed line by line. All output fits 80 columns. Each agent CLI is drawn in its own accent colour (Claude Code orange, Codex green, Antigravity
+blue and so on). `NO_COLOR` turns colour off.
 
 ## JSON output
 

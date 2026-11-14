@@ -1,6 +1,7 @@
 import { formatMs, formatTps } from '../core/card.js';
 import type { BenchmarkMode, GaugeTick, PhaseId, PhaseResult } from '../types.js';
 import { c, colorByTps, displayWidth, sanitizeInline, truncateAnsi } from './ansi.js';
+import { brandPaint } from './brand.js';
 
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
@@ -55,7 +56,11 @@ export function renderBigNumber(text: string): string[] {
  * A half-circle speedometer, DIAL_ROWS lines of exactly DIAL_COLS cells: the arc fills from the
  * left in proportion to `tps`, and the reading sits inside it in large digits.
  */
-export function renderSpeedometer(tps: number | null, maxScale = DIAL_MAX_TPS): string[] {
+export function renderSpeedometer(
+  tps: number | null,
+  maxScale = DIAL_MAX_TPS,
+  accent?: (s: string) => string
+): string[] {
   const value = typeof tps === 'number' && Number.isFinite(tps) ? Math.max(0, tps) : null;
   const ratio = value === null ? 0 : Math.min(1, value / maxScale);
   const cx = DIAL_COLS - 0.5;
@@ -84,7 +89,8 @@ export function renderSpeedometer(tps: number | null, maxScale = DIAL_MAX_TPS): 
   const bigWidth = displayWidth(big[0]);
   const bigLeft = Math.floor((DIAL_COLS - bigWidth) / 2);
   const bigTop = DIAL_ROWS - 4;
-  const paintValue = (text: string) => (value === null || value === 0 ? c.gray(text) : colorByTps(value, c.bold(text)));
+  const paintFill = (text: string) => (accent ? accent(text) : colorByTps(value ?? 0, text));
+  const paintValue = (text: string) => (value === null || value === 0 ? c.gray(text) : paintFill(c.bold(text)));
 
   const lines: string[] = [];
   for (let row = 0; row < DIAL_ROWS; row++) {
@@ -100,7 +106,7 @@ export function renderSpeedometer(tps: number | null, maxScale = DIAL_MAX_TPS): 
       if (bits === 0) {
         line += ' ';
       } else if (fill[row][col] !== 0) {
-        line += colorByTps(value ?? 0, String.fromCodePoint(0x2800 + bits));
+        line += paintFill(String.fromCodePoint(0x2800 + bits));
       } else {
         line += c.gray(String.fromCodePoint(0x2800 + bits));
       }
@@ -111,6 +117,8 @@ export function renderSpeedometer(tps: number | null, maxScale = DIAL_MAX_TPS): 
 }
 
 export interface LiveDashboardState {
+  /** Catalog id of the target; selects its brand colour. */
+  targetId?: string;
   targetName: string;
   model: string;
   mode: BenchmarkMode;
@@ -189,7 +197,8 @@ export function renderDashboardFrame(state: LiveDashboardState, boxWidth = MAX_F
   const name = sanitizeInline(state.targetName);
   const modelRoom = Math.max(6, width - displayWidth(name) - 3);
   const repeat = state.repeat && state.repeat.of > 1 ? c.dim(`  run ${state.repeat.run}/${state.repeat.of}`) : '';
-  const title = `${c.bold(c.white(name))} ${c.gray('·')} ${c.gray(truncateAnsi(model, modelRoom))}${repeat}`;
+  const accent = brandPaint(state.targetId);
+  const title = `${c.bold((accent ?? c.white)(name))} ${c.gray('·')} ${c.gray(truncateAnsi(model, modelRoom))}${repeat}`;
 
   const download = state.completedPhases.download;
   const live = state.currentPhase === 'download' && !download;
@@ -197,7 +206,7 @@ export function renderDashboardFrame(state: LiveDashboardState, boxWidth = MAX_F
   if (download) dialTps = download.decodeTps ?? download.e2eTps;
   else if (live) dialTps = state.tick?.currentTps ?? 0;
 
-  const dial = renderSpeedometer(dialTps);
+  const dial = renderSpeedometer(dialTps, DIAL_MAX_TPS, accent);
   const scaleGap = DIAL_COLS - 1 - 12 - 4;
   const scale = `${c.gray('0')}${' '.repeat(Math.ceil(scaleGap / 2))}${c.dim('tokens / sec')}${' '.repeat(Math.floor(scaleGap / 2))}${c.gray(`${DIAL_MAX_TPS}+`)}`;
 
@@ -210,7 +219,7 @@ export function renderDashboardFrame(state: LiveDashboardState, boxWidth = MAX_F
     stat('Tokens', tokens > 0 ? String(tokens) : '—'),
   ].join(c.gray(width >= 50 ? '     ' : '  '));
 
-  const spinner = c.brightCyan(SPINNER_FRAMES[state.frameCounter % SPINNER_FRAMES.length]);
+  const spinner = (accent ?? c.brightCyan)(SPINNER_FRAMES[state.frameCounter % SPINNER_FRAMES.length]);
   const status = `${spinner} ${c.gray(statusText(state))}`;
 
   return [

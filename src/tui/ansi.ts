@@ -239,6 +239,17 @@ function wrap(code: string, text: string, colorEnabled = useColor()): string {
   return `\x1b[${code}m${text}${RESET}`;
 }
 
+/**
+ * A 24-bit foreground colour, downgraded to the 256-colour cube when the terminal does not
+ * advertise truecolor.
+ */
+export function rgb(r: number, g: number, b: number): (s: string) => string {
+  const truecolor = /truecolor|24bit/i.test(process.env.COLORTERM ?? '');
+  const cube = (v: number) => Math.round((v / 255) * 5);
+  const code = truecolor ? `38;2;${r};${g};${b}` : `38;5;${16 + 36 * cube(r) + 6 * cube(g) + cube(b)}`;
+  return (s) => wrap(code, s);
+}
+
 export interface Palette {
   bold(s: string): string;
   dim(s: string): string;
