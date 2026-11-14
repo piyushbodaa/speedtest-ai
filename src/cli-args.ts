@@ -35,6 +35,7 @@ export interface RunOptions {
 export type ParsedCommand =
   | { kind: 'help' }
   | { kind: 'version' }
+  | { kind: 'update' }
   | { kind: 'detect'; json: boolean }
   | { kind: 'history'; json: boolean; limit: number; clear: boolean }
   | { kind: 'run'; targetSpec: string; run: RunOptions }
@@ -43,7 +44,7 @@ export type ParsedCommand =
   /** No command and no target: the picker on a terminal, the overview otherwise. */
   | { kind: 'default'; run: RunOptions };
 
-const COMMANDS = ['all', 'run', 'demo', 'compare', 'detect', 'history', 'help'] as const;
+const COMMANDS = ['all', 'run', 'demo', 'compare', 'detect', 'history', 'update', 'help'] as const;
 type CommandName = (typeof COMMANDS)[number];
 
 function looksLikeCardPath(token: string): boolean {
@@ -153,6 +154,7 @@ export function parseCliArgs(rawArgv: string[]): ParsedCommand {
   }
   let command = first as CommandName | undefined;
   if (command === 'help') return { kind: 'help' };
+  if (command === 'update') return { kind: 'update' };
 
   const modeFlags = (['quick', 'standard', 'full'] as const).filter((m) => values[m]);
   if (modeFlags.length > 1) {

@@ -296,6 +296,21 @@ describe('live gauge frame', () => {
     expect(renderBigNumber('42.5')).toEqual(['█ █ ▀▀█   █▀▀', '▀▀█ █▀▀   ▀▀█', '  ▀ ▀▀▀ ▀ ▀▀▀']);
   });
 
+  it('draws a known CLI in its brand colour and others in the speed colours', () => {
+    const saved = process.env.COLORTERM;
+    process.env.COLORTERM = 'truecolor';
+    try {
+      const claude = renderDashboardFrame({ ...states.streaming, targetId: 'claude' }, 68);
+      expect(claude).toContain('\x1b[38;2;217;119;87m');
+      expect(renderDashboardFrame({ ...states.streaming, targetId: 'unknown-cli' }, 68)).not.toContain('\x1b[38;2;');
+      process.env.COLORTERM = '';
+      expect(renderDashboardFrame({ ...states.streaming, targetId: 'claude' }, 68)).toContain('\x1b[38;5;');
+    } finally {
+      if (saved === undefined) delete process.env.COLORTERM;
+      else process.env.COLORTERM = saved;
+    }
+  });
+
   it('shows ping, peak and tokens under the dial, and the steps in standard mode', () => {
     const frame = stripAnsi(renderDashboardFrame(states.streaming, 68));
     expect(frame).toContain('Peak 175');
