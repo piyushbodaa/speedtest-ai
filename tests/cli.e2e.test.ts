@@ -349,7 +349,7 @@ describe.concurrent('argument validation', () => {
     expect(help.stdout).not.toMatch(/RFC 3550|5-8s/);
 
     const version = await cli(['--version']);
-    expect(version.stdout.trim()).toBe('speedtest-ai v0.6.0');
+    expect(version.stdout.trim()).toBe('speedtest-ai v0.7.0');
   });
 });
 
