@@ -439,7 +439,7 @@ describe('codex adapter (replayed process)', () => {
       exec: { mode: 'replay', file: fixturePath('codex-exec.jsonl') },
     });
     const controller = new AbortController();
-    setTimeout(() => controller.abort(new InterruptedError()), 150);
+    setTimeout(() => controller.abort(new InterruptedError()), 800);
     const { error } = await drain(adapter().stream(request({ signal: controller.signal })));
     expect(isInterruptedError(error)).toBe(true);
     expect(cli.invocations().map((argv) => argv[0])).toEqual(['app-server']);

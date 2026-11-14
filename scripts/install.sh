@@ -135,6 +135,7 @@ install_bundle() {
   # Rename within the directory so a running copy is never seen half written.
   mv -f "$staged" "$2/speedtest-ai"
   ln -sf "speedtest-ai" "$2/aispeed"
+  ln -sf "speedtest-ai" "$2/kmspeed"
 }
 
 has_terminal() {
@@ -252,7 +253,7 @@ main() {
 
   install_bundle "$bundle" "$install_dir"
   say ""
-  say "Installed $version to $install_dir/speedtest-ai (alias: aispeed)"
+  say "Installed KM AI Speed Test ($version) to $install_dir/speedtest-ai (aliases: kmspeed, aispeed)"
 
   # The same file can still fail from its final place: a package.json with "type": "module" in a
   # parent directory makes Node read an extensionless script as an ES module.

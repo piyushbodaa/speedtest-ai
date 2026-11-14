@@ -67,11 +67,11 @@ describe.skipIf(!hasCurl || process.platform === 'win32')('install.sh', () => {
     expect(fs.readFileSync(installed(), 'utf8')).toBe(FAKE_BUNDLE);
     expect(fs.statSync(installed()).mode & 0o111).not.toBe(0);
     expect(fs.readlinkSync(path.join(home, '.local', 'bin', 'aispeed'))).toBe('speedtest-ai');
-    expect(result.stdout).toContain('Installed speedtest-ai v0.0.0-test');
+    expect(result.stdout).toContain('Installed KM AI Speed Test (speedtest-ai v0.0.0-test)');
     expect(result.stdout).toContain('No interactive terminal, so no speed test was started');
     expect(result.stdout).toContain('is not on your PATH');
     expect(fs.existsSync(log)).toBe(false);
-    expect(fs.readdirSync(path.join(home, '.local', 'bin')).sort()).toEqual(['aispeed', 'speedtest-ai']);
+    expect(fs.readdirSync(path.join(home, '.local', 'bin')).sort()).toEqual(['aispeed', 'kmspeed', 'speedtest-ai']);
   });
 
   it('honours SPEEDTEST_NO_AUTO_RUN=1 and --no-run', () => {

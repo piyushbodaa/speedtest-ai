@@ -1,11 +1,11 @@
-# speedtest-ai
+# KM AI Speed Test (`speedtest-ai`)
 
-A speed test for AI agent CLIs, in the spirit of a WiFi speed test. `speedtest-ai all` finds the
+By [Krutrim Mulyankan](https://krutrimmulyankan.in/speedtest). A speed test for AI agent CLIs, in the spirit of a WiFi speed test. `speedtest-ai all` finds the
 agent CLIs installed on your machine (`claude`, `codex`, `agy`, `grok`, `muse`, ...), sends each one
 the same prompt, and reports a time to first token and a tokens-per-second figure that can be
 compared between them.
 
-Version 0.4.0. Node.js 20 or newer, no runtime dependencies.
+Version 0.5.0. Node.js 20 or newer, no runtime dependencies.
 
 > `all`, `run` and `compare` call the real CLIs with your accounts. They send real prompts and
 > **spend real model tokens**. `demo` and `detect` do not call any model.
@@ -42,7 +42,7 @@ started). On v0.3.0 or older, which has no `update` command, run the install com
 ### Uninstall
 
 ```sh
-rm -f ~/.local/bin/speedtest-ai ~/.local/bin/aispeed
+rm -f ~/.local/bin/speedtest-ai ~/.local/bin/aispeed ~/.local/bin/kmspeed
 rm -rf ~/.local/share/speedtest-ai     # saved results
 ```
 

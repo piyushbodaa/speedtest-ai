@@ -2,6 +2,17 @@ import { rgb } from './ansi.js';
 
 type Rgb = readonly [number, number, number];
 
+/** Krutrim Mulyankan product naming and the site's one accent colour (dark-theme blue). */
+export const PRODUCT_NAME = 'KM AI Speed Test';
+export const PRODUCT_TAG = 'KM AI SPEED TEST';
+export const PRODUCT_BYLINE = 'by Krutrim Mulyankan · krutrimmulyankan.in/speedtest';
+const KM_BLUE: Rgb = [50, 145, 255];
+
+/** Paints text in the Krutrim Mulyankan accent. */
+export function kmAccent(s: string): string {
+  return rgb(KM_BLUE[0], KM_BLUE[1], KM_BLUE[2])(s);
+}
+
 /**
  * The accent each agent CLI uses in its own terminal UI, so its speedometer looks like the tool
  * being tested. Targets without an entry keep the speed-based colours.

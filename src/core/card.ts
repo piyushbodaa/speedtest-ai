@@ -248,7 +248,7 @@ export function renderResultCard(
   const mid = `├${'─'.repeat(width - 2)}┤`;
   const bot = `└${'─'.repeat(width - 2)}┘`;
 
-  const brand = inner >= 44 ? 'SPEEDTEST.AI' : 'AI';
+  const brand = inner >= 48 ? 'KM AI SPEED TEST' : 'KM';
   const title = fitNameAndModel(result.targetName, result.model, inner - displayWidth(brand) - 2);
   const rows: string[] = [
     top,
@@ -351,8 +351,8 @@ export function renderSvgCard(result: SpeedtestResult): string {
   const activeY = cy - r * Math.sin(angle);
 
   const tpsText = s.rankTps >= 100 ? s.rankTps.toFixed(0) : s.rankTps.toFixed(1);
-  const mono = 'ui-monospace, SFMono-Regular, Menlo, monospace';
-  const sans = 'system-ui, -apple-system, Segoe UI, sans-serif';
+  const mono = "'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+  const sans = "Geist, system-ui, -apple-system, 'Segoe UI', sans-serif";
 
   // The grade pill starts at x=630; at ~12.5 px per glyph the title has room for about 44.
   const title = xmlEscape(svgTruncate(result.targetName, 44));
@@ -392,7 +392,7 @@ export function renderSvgCard(result: SpeedtestResult): string {
   const gradeText = xmlEscape(formatGrade(result));
 
   const tile = (x: number, heading: string, value: string, sub: string, fill = '#F8FAFC') => `
-  <rect x="${x}" y="280" width="168" height="112" rx="12" fill="#0F172A" stroke="#1E293B"/>
+  <rect x="${x}" y="280" width="168" height="112" rx="6" fill="#0a0a0a" stroke="#2e2e2e"/>
   <text x="${x + 16}" y="308" fill="#94A3B8" font-family="${mono}" font-size="11" font-weight="700">${heading}</text>
   <text x="${x + 16}" y="346" fill="${fill}" font-family="${mono}" font-size="20" font-weight="700">${value}</text>
   <text x="${x + 16}" y="374" fill="#64748B" font-family="${mono}" font-size="11">${sub}</text>`;
@@ -401,28 +401,27 @@ export function renderSvgCard(result: SpeedtestResult): string {
 <svg xmlns="http://www.w3.org/2000/svg" width="800" height="440" viewBox="0 0 800 440">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#0B0F19"/>
-      <stop offset="100%" stop-color="#111827"/>
+      <stop offset="0%" stop-color="#000000"/>
+      <stop offset="100%" stop-color="#0a0a0a"/>
     </linearGradient>
     <linearGradient id="arcGrad" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#22D3EE"/>
-      <stop offset="55%" stop-color="#34D399"/>
+      <stop offset="0%" stop-color="#3291ff"/>
       <stop offset="100%" stop-color="${accent}"/>
     </linearGradient>
   </defs>
 
-  <rect width="800" height="440" rx="20" fill="url(#bg)"/>
-  <rect x="16" y="16" width="768" height="408" rx="14" fill="none" stroke="#1F2937" stroke-width="1.5"/>
+  <rect width="800" height="440" rx="8" fill="url(#bg)"/>
+  <rect x="16" y="16" width="768" height="408" rx="6" fill="none" stroke="#2e2e2e" stroke-width="1"/>
 
-  <text x="40" y="50" fill="#22D3EE" font-family="${mono}" font-size="14" font-weight="700" letter-spacing="2">SPEEDTEST.AI</text>
+  <text x="40" y="50" fill="#3291ff" font-family="${mono}" font-size="14" font-weight="700" letter-spacing="2">KM AI SPEED TEST</text>
   <text x="40" y="76" fill="#F9FAFB" font-family="${sans}" font-size="22" font-weight="700">${title}</text>
   <text x="40" y="96" fill="#CBD5E1" font-family="${mono}" font-size="13">${modelLine}</text>
   <text x="40" y="114" fill="#9CA3AF" font-family="${mono}" font-size="11">${subtitle}</text>
 
-  <rect x="610" y="38" width="150" height="34" rx="17" fill="#111827" stroke="${accent}" stroke-width="1.5"/>
+  <rect x="610" y="38" width="150" height="34" rx="6" fill="#0a0a0a" stroke="${accent}" stroke-width="1.5"/>
   <text x="685" y="60" text-anchor="middle" fill="${accent}" font-family="${mono}" font-size="13" font-weight="700">${gradeText}</text>
 
-  <path d="M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}" fill="none" stroke="#1F2937" stroke-width="18" stroke-linecap="round"/>
+  <path d="M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}" fill="none" stroke="#2e2e2e" stroke-width="18" stroke-linecap="round"/>
   ${
     ratio > 0.01
       ? `<path d="M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${activeX.toFixed(2)} ${activeY.toFixed(2)}" fill="none" stroke="url(#arcGrad)" stroke-width="18" stroke-linecap="round"/>`
@@ -432,7 +431,7 @@ export function renderSvgCard(result: SpeedtestResult): string {
   <text x="${cx}" y="190" text-anchor="middle" fill="#F9FAFB" font-family="${mono}" font-size="52" font-weight="800">${xmlEscape(tpsText)}</text>
   <text x="${cx}" y="216" text-anchor="middle" fill="#9CA3AF" font-family="${sans}" font-size="14" font-weight="600">${rateLabel}</text>
   <text x="${cx}" y="242" text-anchor="middle" fill="#6B7280" font-family="${mono}" font-size="12">${underGauge}</text>
-  <text x="${cx}" y="262" text-anchor="middle" fill="#4B5563" font-family="${mono}" font-size="10">normalized tokens: one local estimator for every target</text>
+  <text x="${cx}" y="262" text-anchor="middle" fill="#4B5563" font-family="${mono}" font-size="10">normalized tokens: one local estimator for every target · krutrimmulyankan.in/speedtest</text>
 ${tile(40, 'PING (TTFT)', ttftVal, ttftSub)}
 ${tile(224, 'DOWNLOAD', xmlEscape(formatTps(s.rankTps)), `${s.downloadOutputTokens} tok output`, accent)}
 ${tile(408, 'UPLOAD', xmlEscape(upload.value), uploadSub)}

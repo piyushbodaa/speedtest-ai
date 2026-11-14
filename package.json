@@ -1,11 +1,12 @@
 {
   "name": "speedtest-ai",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Live speedometer CLI and streaming benchmark engine for AI models and agent harnesses.",
   "type": "module",
   "bin": {
     "speedtest-ai": "./dist/cli.cjs",
-    "aispeed": "./dist/cli.cjs"
+    "aispeed": "./dist/cli.cjs",
+    "kmspeed": "./dist/cli.cjs"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

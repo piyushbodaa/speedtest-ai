@@ -302,7 +302,7 @@ describe('live gauge frame', () => {
     try {
       const claude = renderDashboardFrame({ ...states.streaming, targetId: 'claude' }, 68);
       expect(claude).toContain('\x1b[38;2;217;119;87m');
-      expect(renderDashboardFrame({ ...states.streaming, targetId: 'unknown-cli' }, 68)).not.toContain('\x1b[38;2;');
+      expect(renderDashboardFrame({ ...states.streaming, targetId: 'unknown-cli' }, 68)).not.toContain('\x1b[38;2;217;119;87m');
       process.env.COLORTERM = '';
       expect(renderDashboardFrame({ ...states.streaming, targetId: 'claude' }, 68)).toContain('\x1b[38;5;');
     } finally {
