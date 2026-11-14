@@ -71,8 +71,8 @@ USAGE
   speedtest-ai detect [--json]        List what is installed and usable
   speedtest-ai history                Show saved results (--limit N, --clear)
   speedtest-ai update                 Install the latest version over this one
-  speedtest-ai menubar install        Menu-bar item (macOS) or tray icon (Windows)
-  speedtest-ai menu [--swiftbar]      Agents and last results, as data for those
+  speedtest-ai menubar install        Menu-bar item (macOS) or tray (Windows)
+  speedtest-ai menu [--swiftbar]      Agents and last results, as data
 
   "all", "run" and "compare" send real prompts and spend real model tokens.
 
