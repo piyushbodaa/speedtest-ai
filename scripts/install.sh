@@ -1,5 +1,7 @@
 #!/bin/sh
 # speedtest-ai installer.
+# SPDX-License-Identifier: MIT. Copyright (c) 2026 Krutrim Mulyankan.
+# https://krutrimmulyankan.in/speedtest/LICENSE.txt
 #
 #   curl -fsSL https://krutrimmulyankan.in/speedtest/install.sh | sh
 #

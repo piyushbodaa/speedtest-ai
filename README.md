@@ -5,7 +5,7 @@ agent CLIs installed on your machine (`claude`, `codex`, `agy`, `grok`, `muse`, 
 the same prompt, and reports a time to first token and a tokens-per-second figure that can be
 compared between them.
 
-Version 0.7.0. Linux, macOS and Windows. Node.js 20 or newer, no runtime dependencies.
+Version 0.7.1. Linux, macOS and Windows. Node.js 20 or newer, no runtime dependencies.
 
 > `all`, `run` and `compare` call the real CLIs with your accounts. They send real prompts and
 > **spend real model tokens**. `demo` and `detect` do not call any model.
@@ -345,3 +345,9 @@ npm run release:bundle   # release/ with the bundle, checksums and install.sh
 
 The tests call no model: they use the simulator, shell commands, fake CLIs and recorded, sanitized
 event streams. `SPEEDTEST_AI_DEMO_TIME_SCALE` (for example `0.2`) shortens the simulator's delays.
+
+## Licence
+
+[MIT](LICENSE) © 2026 Krutrim Mulyankan. The bundle, both installers, and the menu-bar and tray scripts
+the CLI writes are all covered by it. A copy is also published at
+<https://krutrimmulyankan.in/speedtest/LICENSE.txt>.
