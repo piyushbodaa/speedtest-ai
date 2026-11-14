@@ -36,6 +36,8 @@ export type ParsedCommand =
   | { kind: 'help' }
   | { kind: 'version' }
   | { kind: 'update' }
+  | { kind: 'menu'; format: 'json' | 'swiftbar' }
+  | { kind: 'menubar'; action: 'install' | 'uninstall' }
   | { kind: 'detect'; json: boolean }
   | { kind: 'history'; json: boolean; limit: number; clear: boolean }
   | { kind: 'run'; targetSpec: string; run: RunOptions }
@@ -44,7 +46,7 @@ export type ParsedCommand =
   /** No command and no target: the picker on a terminal, the overview otherwise. */
   | { kind: 'default'; run: RunOptions };
 
-const COMMANDS = ['all', 'run', 'demo', 'compare', 'detect', 'history', 'update', 'help'] as const;
+const COMMANDS = ['all', 'run', 'demo', 'compare', 'detect', 'history', 'update', 'menu', 'menubar', 'help'] as const;
 type CommandName = (typeof COMMANDS)[number];
 
 function looksLikeCardPath(token: string): boolean {
@@ -133,6 +135,7 @@ export function parseCliArgs(rawArgv: string[]): ParsedCommand {
         timeout: { type: 'string' },
         limit: { type: 'string' },
         clear: { type: 'boolean' },
+        swiftbar: { type: 'boolean' },
         help: { type: 'boolean', short: 'h' },
         version: { type: 'boolean', short: 'v' },
       },
@@ -149,12 +152,21 @@ export function parseCliArgs(rawArgv: string[]): ParsedCommand {
   if (first !== undefined && !(COMMANDS as readonly string[]).includes(first)) {
     throw new UsageError(`Unknown command "${first}". Commands: ${COMMANDS.filter((n) => n !== 'help').join(', ')}.`);
   }
+  if (first === 'menubar') {
+    const action = positionals[1];
+    if (positionals.length !== 2 || (action !== 'install' && action !== 'uninstall')) {
+      throw new UsageError('Usage: speedtest-ai menubar install | uninstall');
+    }
+    return { kind: 'menubar', action };
+  }
   if (positionals.length > 1) {
     throw new UsageError(`Unexpected argument "${positionals[1]}" after "${first}".`);
   }
   let command = first as CommandName | undefined;
   if (command === 'help') return { kind: 'help' };
   if (command === 'update') return { kind: 'update' };
+  if (command === 'menu') return { kind: 'menu', format: values.swiftbar ? 'swiftbar' : 'json' };
+  if (values.swiftbar) throw new UsageError('--swiftbar only applies to "menu".');
 
   const modeFlags = (['quick', 'standard', 'full'] as const).filter((m) => values[m]);
   if (modeFlags.length > 1) {

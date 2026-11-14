@@ -1,6 +1,6 @@
 {
   "name": "speedtest-ai",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Live speedometer CLI and streaming benchmark engine for AI models and agent harnesses.",
   "type": "module",
   "bin": {

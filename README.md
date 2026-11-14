@@ -5,7 +5,7 @@ agent CLIs installed on your machine (`claude`, `codex`, `agy`, `grok`, `muse`, 
 the same prompt, and reports a time to first token and a tokens-per-second figure that can be
 compared between them.
 
-Version 0.6.0. Linux, macOS and Windows. Node.js 20 or newer, no runtime dependencies.
+Version 0.7.0. Linux, macOS and Windows. Node.js 20 or newer, no runtime dependencies.
 
 > `all`, `run` and `compare` call the real CLIs with your accounts. They send real prompts and
 > **spend real model tokens**. `demo` and `detect` do not call any model.
@@ -42,6 +42,23 @@ It installs to `%LOCALAPPDATA%\Programs\speedtest-ai`, adds that folder to your 
 does not start a test. Agent CLIs installed with npm (`.cmd` shims) and native `.exe` installs are
 both found. The test suite runs on Windows in CI; real agent CLIs on Windows have not been measured
 by the maintainers yet, so treat results there as new.
+
+### Menu bar and tray
+
+```sh
+speedtest-ai menubar install     # and: speedtest-ai menubar uninstall
+```
+
+- **macOS** adds a plugin for [SwiftBar](https://swiftbar.app), a free menu-bar host
+  (`brew install --cask swiftbar`). The ⚡ item lists your agent CLIs with their last result and
+  starts a test for one or all of them in a Terminal window.
+- **Windows** adds a notification-area icon (a PowerShell script, no extra software) with the same
+  menu, started with Windows.
+- **Omarchy** has its own plugin: `omarchy plugin add https://github.com/piyushbodaa/omarchy-km-ai-speedtest.git --enable`.
+
+Both front ends read `speedtest-ai menu` and run tests in a terminal, where the live speedometer is
+drawn. They are built and exercised in CI on macOS and Windows runners (the plugin prints its menu,
+the tray script builds its menu), but nobody has looked at them on a real Mac or PC yet.
 
 ### Update
 
