@@ -2,6 +2,7 @@ import type { BenchmarkMode, TargetInfo } from '../types.js';
 import { c, displayWidth, padRightVisible, sanitizeInline, truncateAnsi } from './ansi.js';
 import { targetIsRunnable } from './dashboard.js';
 import { eraseLinesAbove, hideCursor, holdRawInput, out, releaseRawInput, showCursor, termSize } from './io.js';
+import { kmAccent, PRODUCT_TAG } from './brand.js';
 
 export interface InteractiveSelection {
   targetId: string;
@@ -65,7 +66,7 @@ export function renderPickerLines(
   const fit = (text: string) => truncateAnsi(text, width);
   const modeText = c.bold(c.white(mode.toUpperCase()));
 
-  const lines: string[] = [fit(c.bold(c.brightCyan('SPEEDTEST.AI — choose what to benchmark')))];
+  const lines: string[] = [fit(c.bold(kmAccent(`${PRODUCT_TAG} — choose what to benchmark`)))];
   if (width >= 62) {
     lines.push(fit(`${c.dim('  [↑/↓] choose   [Tab] mode: ')}${modeText}${c.dim('   [Enter] start   [q] quit')}`));
   } else {
@@ -93,7 +94,7 @@ export function renderPickerLines(
 
   visible.forEach((item, offset) => {
     const active = start + offset === selectedIdx;
-    const pointer = active ? c.brightCyan('❯ ') : '  ';
+    const pointer = active ? kmAccent('❯ ') : '  ';
     const status = item.ready ? c.brightGreen('●') : c.yellow('◌');
     const nameText = padRightVisible(truncateAnsi(item.name, nameWidth), nameWidth);
     const name = !item.selectable ? c.gray(nameText) : active ? c.bold(c.white(nameText)) : nameText;

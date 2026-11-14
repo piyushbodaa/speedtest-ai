@@ -10,7 +10,7 @@ import { createDemoAdapter } from './adapters/providers/demo.js';
 import { parseTargetSpec, resolveAdapter } from './adapters/registry.js';
 import { spawnSync } from 'node:child_process';
 import { killAllChildren } from './adapters/utils/spawn.js';
-import { brandPaint } from './tui/brand.js';
+import { brandPaint, kmAccent, PRODUCT_BYLINE, PRODUCT_NAME } from './tui/brand.js';
 import {
   DEFAULT_CARD_PATH,
   parseCliArgs,
@@ -44,7 +44,7 @@ import {
   type TargetInfo,
 } from './types.js';
 
-const VERSION = '0.4.0';
+const VERSION = '0.5.0';
 
 const EXIT_OK = 0;
 const EXIT_FAILED = 1;
@@ -56,7 +56,9 @@ const EXIT_SIGHUP = 129;
 const HARD_EXIT_AFTER_MS = 2000;
 
 function helpText(): string {
-  return `speedtest-ai v${VERSION} — a speed test for AI agent CLIs and models
+  return `${PRODUCT_NAME} · speedtest-ai v${VERSION}
+A speed test for AI agent CLIs and models
+${PRODUCT_BYLINE}
 
 USAGE
   speedtest-ai all [flags]            Benchmark every installed agent CLI
@@ -381,7 +383,7 @@ async function runBatch(entries: BatchEntry[], run: RunOptions, mode: BenchmarkM
     const entry = entries[i];
     started = i + 1;
     if (human) {
-      const accent = brandPaint(entry.id) ?? c.brightCyan;
+      const accent = brandPaint(entry.id) ?? kmAccent;
       const head = `${c.bold(accent(`▶ [${i + 1}/${entries.length}]`))} ${c.bold(accent(sanitizeInline(entry.name)))} ${c.dim(`(${entry.label}) [${mode}${run.runs > 1 ? `, ${run.runs} runs` : ''}]`)}`;
       out(`\n${truncateAnsi(head, maxLineWidth())}\n`);
     }
@@ -565,7 +567,7 @@ async function dispatch(command: ParsedCommand): Promise<number> {
     case 'history': {
       if (command.clear) {
         await clearHistory();
-        out(command.json ? JSON.stringify({ cleared: true }) + '\n' : 'Speedtest history cleared.\n');
+        out(command.json ? JSON.stringify({ cleared: true }) + '\n' : 'Speed test history cleared.\n');
         return EXIT_OK;
       }
       const history = await readHistory();

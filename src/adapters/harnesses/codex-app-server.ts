@@ -10,7 +10,7 @@ type Json = Record<string, any>;
 /** `codex app-server` is marked experimental upstream; past this the adapter falls back to `codex exec`. */
 export const APP_SERVER_HANDSHAKE_TIMEOUT_MS = 10_000;
 
-const CLIENT_INFO = { name: 'speedtest-ai', title: 'speedtest-ai', version: '0.4.0' };
+const CLIENT_INFO = { name: 'speedtest-ai', title: 'speedtest-ai', version: '0.5.0' };
 
 const REQUEST_ID = { initialize: 1, threadStart: 2, turnStart: 3 } as const;
 

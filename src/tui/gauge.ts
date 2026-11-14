@@ -1,7 +1,7 @@
 import { formatMs, formatTps } from '../core/card.js';
 import type { BenchmarkMode, GaugeTick, PhaseId, PhaseResult } from '../types.js';
 import { c, colorByTps, displayWidth, sanitizeInline, truncateAnsi } from './ansi.js';
-import { brandPaint } from './brand.js';
+import { brandPaint, kmAccent, PRODUCT_TAG } from './brand.js';
 
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
@@ -219,11 +219,11 @@ export function renderDashboardFrame(state: LiveDashboardState, boxWidth = MAX_F
     stat('Tokens', tokens > 0 ? String(tokens) : '—'),
   ].join(c.gray(width >= 50 ? '     ' : '  '));
 
-  const spinner = (accent ?? c.brightCyan)(SPINNER_FRAMES[state.frameCounter % SPINNER_FRAMES.length]);
+  const spinner = (accent ?? kmAccent)(SPINNER_FRAMES[state.frameCounter % SPINNER_FRAMES.length]);
   const status = `${spinner} ${c.gray(statusText(state))}`;
 
   return [
-    '',
+    center(c.dim(kmAccent(PRODUCT_TAG))),
     center(title),
     '',
     ...dial.map(center),

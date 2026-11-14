@@ -206,7 +206,7 @@ for (let i = 0; i < 48; i++) {
     expect(first.stdout).toContain(`Saved SVG card: ${explicit}`);
     const svg = await readFile(explicit, 'utf8');
     expect(svg).toContain('<svg');
-    expect(svg).toContain('SPEEDTEST.AI');
+    expect(svg).toContain('KM AI SPEED TEST');
     expect(svg).toContain('tok/s');
 
     const second = await cli(['--card', 'demo', '--profile', 'frontier', '--quick', '--json', '--no-history'], { cwd: dir });
@@ -349,7 +349,7 @@ describe.concurrent('argument validation', () => {
     expect(help.stdout).not.toMatch(/RFC 3550|5-8s/);
 
     const version = await cli(['--version']);
-    expect(version.stdout.trim()).toBe('speedtest-ai v0.4.0');
+    expect(version.stdout.trim()).toBe('speedtest-ai v0.5.0');
   });
 });
 

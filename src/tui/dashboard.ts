@@ -39,7 +39,7 @@ import {
   MIN_FRAME_ROWS,
   renderDashboardFrame,
 } from './gauge.js';
-import { brandPaint } from './brand.js';
+import { brandPaint, PRODUCT_NAME } from './brand.js';
 import { eraseLinesAbove, hideCursor, holdRawInput, maxLineWidth, out, releaseRawInput, showCursor, termSize } from './io.js';
 
 export type OutputMode = 'tui' | 'plain' | 'json' | 'jsonl' | 'silent';
@@ -131,7 +131,7 @@ function createPlainReporter(compact: boolean) {
         if (compact) return;
         const model = ev.model ? ` (${sanitizeInline(ev.model)})` : '';
         const runs = ev.runs > 1 ? `, ${ev.runs} runs` : '';
-        write(`Speedtest.ai — ${sanitizeInline(ev.targetName)}${model} [${ev.mode}${runs}]`);
+        write(`${PRODUCT_NAME} — ${sanitizeInline(ev.targetName)}${model} [${ev.mode}${runs}]`);
       } else if (ev.type === 'repeat:start') {
         write(`  Run ${ev.run}/${ev.of}`);
       } else if (ev.type === 'phase:start') {
@@ -453,8 +453,8 @@ export function renderCompareTable(results: SpeedtestResult[], options: Leaderbo
   const lines: string[] = [];
 
   const heading = options.interrupted
-    ? 'Speedtest.ai partial leaderboard (interrupted)'
-    : (options.title ?? 'Speedtest.ai leaderboard (fastest first)');
+    ? `${PRODUCT_NAME} · partial leaderboard (interrupted)`
+    : (options.title ?? `${PRODUCT_NAME} · leaderboard (fastest first)`);
   if (sorted.length > 0) {
     lines.push(c.bold(truncateAnsi(heading, width)));
     lines.push('');
@@ -616,7 +616,7 @@ export function renderHistoryTable(
 
   const recent = history.slice(-limit).reverse();
   const lines: string[] = [
-    c.bold(truncateAnsi(`Recent speedtest runs (${recent.length} of ${history.length})`, width)),
+    c.bold(truncateAnsi(`${PRODUCT_NAME} · recent runs (${recent.length} of ${history.length})`, width)),
     '',
   ];
   const ttftOf = (r: SpeedtestResult) => (typeof r.summary.ttftMs === 'number' ? formatMs(r.summary.ttftMs) : 'n/a');
