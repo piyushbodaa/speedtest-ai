@@ -33,7 +33,7 @@ export interface FakeMachine {
 }
 
 export function createFakeMachine(): FakeMachine {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'speedtest-ai-machine-'));
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'speedtest-ai-machine-')));
   const miseHome = path.join(root, 'usr-bin');
   const shimDir = path.join(root, 'share', 'mise', 'shims');
   const wrapperDir = path.join(root, 'share', 'mise', 'command-wrappers', 'bin');
