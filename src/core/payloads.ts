@@ -10,12 +10,14 @@ export interface PingPayload {
 export interface DownloadPayload {
   prompt: string;
   sentenceCount: number;
+  wordsPerSentence: number;
 }
 
 export interface UploadPrefillPayload {
   prompt: string;
   expectedCode: string;
-  estimatedInputTokens: number;
+  /** Normalized tokens of `prompt`. */
+  promptTokens: number;
 }
 
 export interface ToolLoopPayload {
@@ -32,15 +34,25 @@ export function buildPingPayload(): PingPayload {
   };
 }
 
+export const DOWNLOAD_WORDS_PER_SENTENCE = 20;
+
+export function downloadSentenceCount(mode: BenchmarkMode): number {
+  return mode === 'full' ? 60 : 30;
+}
+
+/**
+ * A fixed-length answer long enough that the visible stream lasts several seconds even at
+ * 150 tok/s, so the streaming-validity rule and the 1-second peak window have room to work.
+ */
 export function buildDownloadPayload(mode: BenchmarkMode): DownloadPayload {
-  const sentenceCount = mode === 'full' ? 28 : 18;
+  const sentenceCount = downloadSentenceCount(mode);
   const prompt = [
     `Write a continuous, dense plain-text technical explanation of how packet-switched networks, TCP congestion control, and fiber-optic routing work end-to-end.`,
-    `Format your response strictly as numbered plain-text sentences from 1 to ${sentenceCount}, each around 15 words long.`,
-    `Do not use tools, do not use markdown code blocks, and begin writing sentence 1 immediately.`,
+    `Format your response strictly as numbered plain-text sentences from 1 to ${sentenceCount}, each about ${DOWNLOAD_WORDS_PER_SENTENCE} words long.`,
+    `Write all ${sentenceCount} sentences, do not stop early or summarize, do not use tools, do not use markdown or code blocks, and begin writing sentence 1 immediately.`,
   ].join(' ');
 
-  return { prompt, sentenceCount };
+  return { prompt, sentenceCount, wordsPerSentence: DOWNLOAD_WORDS_PER_SENTENCE };
 }
 
 export function buildUploadPrefillPayload(mode: BenchmarkMode): UploadPrefillPayload {
@@ -48,7 +60,9 @@ export function buildUploadPrefillPayload(mode: BenchmarkMode): UploadPrefillPay
   const needleIndex = Math.floor(entryCount * 0.6);
   const expectedCode = `VERIFY-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
 
+  // The leading nonce keeps the payload from ever being a prompt-cache hit.
   const lines: string[] = [
+    `Capture session ${crypto.randomBytes(8).toString('hex')}.`,
     'Analyze the following unique synthetic network telemetry log and answer the single question at the end.',
     '',
   ];
@@ -76,7 +90,7 @@ export function buildUploadPrefillPayload(mode: BenchmarkMode): UploadPrefillPay
   return {
     prompt,
     expectedCode,
-    estimatedInputTokens: estimateTokens(prompt),
+    promptTokens: estimateTokens(prompt),
   };
 }
 
@@ -85,7 +99,8 @@ export function buildToolLoopPayload(): ToolLoopPayload {
   return {
     filename: 'probe.txt',
     fileContent: expectedToken,
-    prompt: 'Read the file named probe.txt in the current directory and reply with ONLY its exact text content, nothing else.',
+    prompt:
+      'Use your file reading tool to read the file named probe.txt in the current directory and reply with ONLY its exact text content, nothing else.',
     expectedToken,
   };
 }

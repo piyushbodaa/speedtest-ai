@@ -1,0 +1,27 @@
+{"id":1,"result":{"platformFamily":"unix","platformOs":"linux"}}
+{"id":2,"result":{"thread":{"id":"id_1","ephemeral":true,"modelProvider":"openai","model":"gpt-6.1-sol","status":{"type":"idle"}}}}
+{"method":"thread/started","params":{"thread":{"id":"id_1","ephemeral":true,"modelProvider":"openai","model":"gpt-6.1-sol","status":{"type":"idle"}}}}
+{"id":3,"result":{"turn":{"id":"id_2","rootTurnId":"id_2","items":[],"itemsView":"notLoaded","status":"inProgress","error":null,"durationMs":null}}}
+{"method":"thread/status/changed","params":{"threadId":"id_1","status":{"type":"active","activeFlags":[]}}}
+{"method":"turn/started","params":{"threadId":"id_1","turn":{"id":"id_2","rootTurnId":"id_2","items":[],"itemsView":"notLoaded","status":"inProgress","error":null,"durationMs":null}}}
+{"method":"item/started","params":{"item":{"type":"userMessage","id":"id_3","clientId":null,"content":[{"type":"text","text":"Write a continuous, dense plain-text technical explanation of how packet-switched networks, TCP congestion control, and fiber-optic routing work end-to-end. Format your response strictly as numbered plain-text sentences from 1 to 30, each about 20 words long. Write all 30 sentences, do not stop early or summarize, do not use tools, do not use markdown or code blocks, and begin writing sentence 1 immediately.","text_elements":[]}]},"threadId":"id_1","turnId":"id_2"}}
+{"method":"item/completed","params":{"item":{"type":"userMessage","id":"id_3","clientId":null,"content":[{"type":"text","text":"Write a continuous, dense plain-text technical explanation of how packet-switched networks, TCP congestion control, and fiber-optic routing work end-to-end. Format your response strictly as numbered plain-text sentences from 1 to 30, each about 20 words long. Write all 30 sentences, do not stop early or summarize, do not use tools, do not use markdown or code blocks, and begin writing sentence 1 immediately.","text_elements":[]}]},"threadId":"id_1","turnId":"id_2","contentTokenCount":null}}
+{"method":"item/started","params":{"item":{"type":"agentMessage","moderation":null,"id":"msg_1","text":"","phase":"final_answer","memoryCitation":null,"delivery":null,"questions":null},"threadId":"id_1","turnId":"id_2"}}
+{"method":"item/agentMessage/delta","params":{"threadId":"id_1","turnId":"id_2","itemId":"msg_1","delta":"1"}}
+{"method":"item/agentMessage/delta","params":{"threadId":"id_1","turnId":"id_2","itemId":"msg_1","delta":"."}}
+{"method":"item/agentMessage/delta","params":{"threadId":"id_1","turnId":"id_2","itemId":"msg_1","delta":" Packet"}}
+{"method":"item/agentMessage/delta","params":{"threadId":"id_1","turnId":"id_2","itemId":"msg_1","delta":"-sw"}}
+{"method":"item/agentMessage/delta","params":{"threadId":"id_1","turnId":"id_2","itemId":"msg_1","delta":"itched"}}
+{"method":"item/agentMessage/delta","params":{"threadId":"id_1","turnId":"id_2","itemId":"msg_1","delta":" networks"}}
+{"method":"item/agentMessage/delta","params":{"threadId":"id_1","turnId":"id_2","itemId":"msg_1","delta":" divide"}}
+{"method":"item/agentMessage/delta","params":{"threadId":"id_1","turnId":"id_2","itemId":"msg_1","delta":" application"}}
+{"method":"item/agentMessage/delta","params":{"threadId":"id_1","turnId":"id_2","itemId":"msg_1","delta":" data"}}
+{"method":"item/agentMessage/delta","params":{"threadId":"id_1","turnId":"id_2","itemId":"msg_1","delta":" into"}}
+{"method":"item/agentMessage/delta","params":{"threadId":"id_1","turnId":"id_2","itemId":"msg_1","delta":" manageable"}}
+{"method":"item/agentMessage/delta","params":{"threadId":"id_1","turnId":"id_2","itemId":"msg_1","delta":" packets"}}
+{"method":"item/agentMessage/delta","params":{"threadId":"id_1","turnId":"id_2","itemId":"msg_1","delta":","}}
+{"method":"item/agentMessage/delta","params":{"threadId":"id_1","turnId":"id_2","itemId":"msg_1","delta":" allowing"}}
+{"method":"item/completed","params":{"item":{"type":"agentMessage","moderation":null,"id":"msg_1","text":"1. Packet-switched networks divide application data into manageable packets, allowing","phase":"final_answer","memoryCitation":null,"delivery":null,"questions":null},"threadId":"id_1","turnId":"id_2","contentTokenCount":842}}
+{"method":"thread/tokenUsage/updated","params":{"threadId":"id_1","turnId":"id_2","tokenUsage":{"total":{"totalTokens":15306,"inputTokens":14461,"cachedInputTokens":11904,"cacheWriteInputTokens":0,"outputTokens":845,"reasoningOutputTokens":0},"last":{"totalTokens":15306,"inputTokens":14461,"cachedInputTokens":11904,"cacheWriteInputTokens":0,"outputTokens":845,"reasoningOutputTokens":0},"modelContextWindow":475000}}}
+{"method":"thread/status/changed","params":{"threadId":"id_1","status":{"type":"idle"}}}
+{"method":"turn/completed","params":{"threadId":"id_1","turn":{"id":"id_2","rootTurnId":"id_2","items":[{"type":"agentMessage","moderation":null,"id":"msg_1","text":"1. Packet-switched networks divide application data into manageable packets, allowing","phase":"final_answer","memoryCitation":null,"delivery":null,"questions":null}],"itemsView":"summary","status":"completed","error":null,"durationMs":44245}}}

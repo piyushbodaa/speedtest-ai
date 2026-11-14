@@ -1,0 +1,16 @@
+{"payload_type":"runtime.command.accepted","payload":{"command_kind":"turn.submit","kind":"command_accepted"}}
+{"payload_type":"session.run.linked","payload":{"kind":"session_run_linked"}}
+{"payload_type":"run.model.configured","payload":{"display_label":"muse-ember-1.0","kind":"run_model_configured","model_id":"muse-ember-1.0","provider_id":"meta","source":"startup"}}
+{"payload_type":"turn.input.user","payload":{"kind":"turn_input_user","prompt":"Write numbered plain-text sentences 1 to 4 about how DNS resolution works, each about 12 words. Do not use tools."}}
+{"payload_type":"run.lifecycle.started","payload":{"kind":"run_started","prompt":"Write numbered plain-text sentences 1 to 4 about how DNS resolution works, each about 12 words. Do not use tools."}}
+{"payload_type":"task.stream.linked","payload":{"kind":"task_stream_linked"}}
+{"payload_type":"task.lifecycle.proposed","payload":{"event":{"kind":"proposed","task_kind":"model.meta.response"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.accepted","payload":{"event":{"kind":"accepted"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.scheduled","payload":{"event":{"kind":"scheduled"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.side_effect_intent","payload":{"event":{"kind":"side_effect_intent","operation":"model.meta.response","policy_decision":"not_applicable"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.started","payload":{"event":{"kind":"started"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.status","payload":{"event":{"details":{"facets":[{"attempt":1,"kind":"external_attempt","max_attempts":10,"operation":"model.response","system":"meta"},{"detail":{"kind":"provider","provider":"meta"},"kind":"producer"}],"phase":"opening_stream"},"kind":"status","message":"opening meta model stream attempt 1/10"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.status","payload":{"event":{"details":{"facets":[{"attempt":1,"error_kind":"client","http_status":404,"kind":"external_attempt","max_attempts":10,"operation":"model.response","system":"meta"},{"detail":{"kind":"provider","model":"muse-ember-1.0-contributor","provider":"meta"},"kind":"producer"}],"phase":"stream_failed"},"kind":"status","message":"failed meta model stream attempt 1/10"},"kind":"task_lifecycle"}}
+{"payload_type":"task.lifecycle.failed","payload":{"event":{"kind":"failed","reason":"model `muse-ember-1.0` does not exist or you lack access"},"kind":"task_lifecycle"}}
+{"payload_type":"run.usage","payload":{"calls":1,"cancelled_calls":0,"children_included":false,"completed_calls":0,"failed_calls":1,"kind":"run_usage","models":[]}}
+{"payload_type":"run.terminal.failed","payload":{"kind":"run_terminal","reason":"model `muse-ember-1.0` does not exist or you lack access","terminal":"failed","text":""}}
