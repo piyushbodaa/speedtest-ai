@@ -89,7 +89,8 @@ export function createAnthropicAdapter(options?: {
   defaultModel?: string;
 }): SpeedtestAdapter {
   const name = 'Anthropic API';
-  const apiKey = options?.apiKey || process.env.ANTHROPIC_API_KEY;
+  // The registry decides which key may go to which endpoint; no fallback to the environment here.
+  const apiKey = options?.apiKey;
   const baseUrl = (options?.baseUrl || 'https://api.anthropic.com').replace(/\/+$/, '');
   const defaultModel = options?.defaultModel || 'claude-sonnet-5-5';
 

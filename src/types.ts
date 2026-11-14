@@ -119,6 +119,11 @@ export interface SpeedtestAdapter {
   category: TargetCategory;
   tier: SupportTier;
   supportsToolLoop: boolean;
+  /**
+   * The tool-loop phase can only run unattended if this CLI is started with a flag that turns its
+   * permission prompts off. Such a phase is skipped unless the user asks for it.
+   */
+  toolLoopBypassesPermissions?: boolean;
   defaultModel?: string;
   /** Static caveats attached to every result of this adapter (per-run ones go through `note` chunks). */
   notes?: string[];

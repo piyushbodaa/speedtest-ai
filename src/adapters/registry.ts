@@ -33,6 +33,15 @@ export interface ResolveTargetOptions {
   pathEnv?: string;
 }
 
+function sameOrigin(a: string | undefined, b: string | undefined): boolean {
+  if (!a || !b) return false;
+  try {
+    return new URL(a).origin === new URL(b).origin;
+  } catch {
+    return false;
+  }
+}
+
 export interface ResolvedAdapter {
   adapter: SpeedtestAdapter;
   /**
@@ -97,7 +106,10 @@ function resolveProvider(
   model: string | undefined
 ): ResolvedAdapter {
   const detected = opts.detectedTargets?.find((t) => t.id === entry.id);
-  const apiKey = opts.apiKey || providerApiKey(entry);
+  // A key from the environment belongs to the provider's own endpoint. With --base-url the
+  // request goes somewhere else, so only a key given on purpose (--api-key) is sent there.
+  const redirected = Boolean(opts.baseUrl) && !sameOrigin(opts.baseUrl, entry.defaultBaseUrl);
+  const apiKey = opts.apiKey || (redirected ? undefined : providerApiKey(entry));
   const tier: SupportTier = 'verified';
 
   switch (entry.id) {
@@ -148,7 +160,7 @@ function resolveProvider(
           defaultModel: resolvedModel,
           extraHeaders:
             entry.id === 'openrouter'
-              ? { 'HTTP-Referer': 'https://github.com/speedtest-ai', 'X-Title': 'speedtest-ai' }
+              ? { 'HTTP-Referer': 'https://krutrimmulyankan.in/speedtest', 'X-Title': 'speedtest-ai' }
               : undefined,
         }),
         model: resolvedModel,
@@ -206,7 +218,7 @@ export async function resolveAdapter(opts: ResolveTargetOptions): Promise<Resolv
         name: `OpenAI-Compatible (${id})`,
         category: 'provider',
         baseUrl: opts.baseUrl,
-        apiKey: opts.apiKey || process.env.OPENAI_API_KEY,
+        apiKey: opts.apiKey,
         defaultModel: resolvedModel,
       }),
       model: resolvedModel,

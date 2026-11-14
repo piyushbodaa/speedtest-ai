@@ -118,18 +118,29 @@ export async function loadHistory(): Promise<SpeedtestResult[]> {
   return (await readHistory()).entries;
 }
 
+/** History keeps the measurements, not what the model wrote. */
+function withoutResponseText(result: SpeedtestResult): Record<string, unknown> {
+  const phases: Record<string, unknown> = {};
+  for (const [id, phase] of Object.entries(result.phases)) {
+    phases[id] = phase ? { ...phase, responseText: '' } : phase;
+  }
+  return { ...(result as unknown as Record<string, unknown>), phases };
+}
+
 export async function appendHistory(result: SpeedtestResult): Promise<void> {
   const dir = getHistoryDir();
-  await fs.mkdir(dir, { recursive: true });
+  await fs.mkdir(dir, { recursive: true, mode: 0o700 });
+  // A folder made by an older version was world-readable.
+  await fs.chmod(dir, 0o700).catch(() => {});
   const { stored } = await readStored();
-  stored.push(result as unknown as Record<string, unknown>);
+  stored.push(withoutResponseText(result));
   const trimmed = stored.slice(-MAX_HISTORY_ENTRIES);
 
   // Write-then-rename so an interrupted save never leaves a half-written history file.
   const file = getHistoryFilePath();
   const tmp = `${file}.${process.pid}.tmp`;
   try {
-    await fs.writeFile(tmp, JSON.stringify(trimmed, null, 2), 'utf8');
+    await fs.writeFile(tmp, JSON.stringify(trimmed, null, 2), { encoding: 'utf8', mode: 0o600 });
     await fs.rename(tmp, file);
   } catch (err) {
     await fs.rm(tmp, { force: true }).catch(() => {});

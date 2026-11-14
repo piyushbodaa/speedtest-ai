@@ -52,7 +52,8 @@ export function createGeminiAdapter(options?: {
   defaultModel?: string;
 }): SpeedtestAdapter {
   const name = 'Google Gemini API';
-  const apiKey = options?.apiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  // The registry decides which key may go to which endpoint; no fallback to the environment here.
+  const apiKey = options?.apiKey;
   const baseUrl = (options?.baseUrl || 'https://generativelanguage.googleapis.com').replace(/\/+$/, '');
   const defaultModel = options?.defaultModel || 'gemini-2.5-flash';
 

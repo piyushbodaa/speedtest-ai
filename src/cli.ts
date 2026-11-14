@@ -10,6 +10,7 @@ import { createDemoAdapter } from './adapters/providers/demo.js';
 import { parseTargetSpec, resolveAdapter } from './adapters/registry.js';
 import { spawnSync } from 'node:child_process';
 import { killAllChildren } from './adapters/utils/spawn.js';
+import { HARNESS_CATALOG } from './adapters/catalog.js';
 import { brandPaint, kmAccent, PRODUCT_BYLINE, PRODUCT_NAME } from './tui/brand.js';
 import {
   DEFAULT_CARD_PATH,
@@ -46,7 +47,7 @@ import {
   type TargetInfo,
 } from './types.js';
 
-const VERSION = '0.7.1';
+const VERSION = '0.8.0';
 
 const EXIT_OK = 0;
 const EXIT_FAILED = 1;
@@ -99,6 +100,9 @@ FLAGS
       --runs <n>         Repeat the download n times (1-${MAX_RUNS}), report the median
       --as-configured    Keep your MCP servers, hooks, plugins and project
                          context. Default is lean: your login and model only
+      --allow-permission-bypass
+                         Let the tool-loop phase start agy and grok with their
+                         permission prompts off (skipped otherwise)
       --include-apis     "all" also tests cloud APIs that have a key set
       --profile <name>   Demo profile (see Simulated above; default frontier)
       --cmd <template>   Shell command for -t cmd; the prompt replaces
@@ -252,6 +256,7 @@ function runPrepared(
     noHistory: run.noHistory,
     signal: controller.signal,
     asConfigured: run.asConfigured,
+    allowPermissionBypass: run.allowPermissionBypass,
     runs: run.runs,
   });
   return consumeSpeedtestEvents(events, {
@@ -581,7 +586,12 @@ async function dispatch(command: ParsedCommand): Promise<number> {
     case 'detect': {
       const targets = await detectTargets();
       if (command.json) {
-        out(JSON.stringify(targets, null, 2) + '\n');
+        // How each agent CLI is started and what the lean mode switches off, so it can be audited.
+        const audited = targets.map((target) => {
+          const entry = HARNESS_CATALOG.find((h) => h.id === target.id);
+          return entry ? { ...target, invocation: entry.invocation, isolation: entry.isolation } : target;
+        });
+        out(JSON.stringify(audited, null, 2) + '\n');
       } else {
         out(renderDetectTable(targets) + '\n');
         const hint = 'Benchmark them all: speedtest-ai all   ·   one: speedtest-ai run -t <id>';

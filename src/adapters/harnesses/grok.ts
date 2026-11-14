@@ -150,6 +150,7 @@ export function createGrokAdapter(binaryPath = 'grok'): SpeedtestAdapter {
     category: 'harness',
     tier: 'verified',
     supportsToolLoop: true,
+    toolLoopBypassesPermissions: true,
     async *stream(req: AdapterInvokeRequest): AsyncGenerator<AdapterStreamChunk, void, unknown> {
       yield* withNotes(
         runNdjsonHarness({

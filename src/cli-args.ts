@@ -23,6 +23,7 @@ export interface RunOptions {
   timeoutMs: number;
   runs: number;
   asConfigured: boolean;
+  allowPermissionBypass: boolean;
   noHistory: boolean;
   output: CliOutputMode;
   cardPath?: string;
@@ -123,6 +124,7 @@ export function parseCliArgs(rawArgv: string[]): ParsedCommand {
         full: { type: 'boolean' },
         runs: { type: 'string' },
         'as-configured': { type: 'boolean' },
+        'allow-permission-bypass': { type: 'boolean' },
         'include-apis': { type: 'boolean' },
         cmd: { type: 'string' },
         'base-url': { type: 'string' },
@@ -211,6 +213,7 @@ export function parseCliArgs(rawArgv: string[]): ParsedCommand {
         : Math.round(parsePositiveNumber('--timeout', values.timeout, MAX_TIMEOUT_SECONDS) * 1000),
     runs: values.runs === undefined ? 1 : parseIntegerInRange('--runs', values.runs, 1, MAX_RUNS),
     asConfigured: Boolean(values['as-configured']),
+    allowPermissionBypass: Boolean(values['allow-permission-bypass']),
     noHistory: Boolean(values['no-history']),
     output: values.jsonl ? 'jsonl' : values.json ? 'json' : values.plain ? 'plain' : 'tui',
     cardPath: values.card,

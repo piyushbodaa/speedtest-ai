@@ -1,6 +1,6 @@
 {
   "name": "speedtest-ai",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Live speedometer CLI and streaming benchmark engine for AI models and agent harnesses.",
   "type": "module",
   "bin": {
@@ -19,7 +19,8 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "SECURITY.md"
   ],
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",

@@ -5,7 +5,7 @@ agent CLIs installed on your machine (`claude`, `codex`, `agy`, `grok`, `muse`, 
 the same prompt, and reports a time to first token and a tokens-per-second figure that can be
 compared between them.
 
-Version 0.7.1. Linux, macOS and Windows. Node.js 20 or newer, no runtime dependencies.
+Version 0.8.0. Linux, macOS and Windows. Node.js 20 or newer, no runtime dependencies.
 
 > `all`, `run` and `compare` call the real CLIs with your accounts. They send real prompts and
 > **spend real model tokens**. `demo` and `detect` do not call any model.
@@ -345,6 +345,18 @@ npm run release:bundle   # release/ with the bundle, checksums and install.sh
 
 The tests call no model: they use the simulator, shell commands, fake CLIs and recorded, sanitized
 event streams. `SPEEDTEST_AI_DEMO_TIME_SCALE` (for example `0.2`) shortens the simulator's delays.
+
+## Security and privacy
+
+No telemetry, no account, no runtime dependencies. The only thing that leaves your machine during a
+test is the fixed test prompt, sent by each agent CLI to its own vendor as usual.
+[SECURITY.md](SECURITY.md) lists every network request the tool can make, what the agents are allowed
+to do, and three ways to check the download before running it, including verifying it against the
+build on GitHub:
+
+```sh
+gh attestation verify speedtest-ai.cjs --repo piyushbodaa/speedtest-ai
+```
 
 ## Licence
 
