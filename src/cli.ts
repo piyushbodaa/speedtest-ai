@@ -11,6 +11,8 @@ import { parseTargetSpec, resolveAdapter } from './adapters/registry.js';
 import { spawnSync } from 'node:child_process';
 import { killAllChildren } from './adapters/utils/spawn.js';
 import { HARNESS_CATALOG } from './adapters/catalog.js';
+import { copyImageToClipboard, latestShareCard, renderLeaderboardSvg, saveShareCard } from './core/share.js';
+import { consumeParallel } from './tui/parallel.js';
 import { brandPaint, commandName, kmAccent, PRODUCT_BYLINE, PRODUCT_NAME } from './tui/brand.js';
 import {
   DEFAULT_CARD_PATH,
@@ -32,6 +34,7 @@ import {
   consumeSpeedtestEvents,
   describeRunError,
   type OutputMode,
+  renderCompactResult,
   renderCompareTable,
   renderDetectTable,
   renderHistoryTable,
@@ -47,7 +50,7 @@ import {
   type TargetInfo,
 } from './types.js';
 
-const VERSION = '0.9.0';
+const VERSION = '0.10.0';
 
 const EXIT_OK = 0;
 const EXIT_FAILED = 1;
@@ -72,6 +75,7 @@ USAGE
   speedtest demo                    Simulated run, no model is called
   speedtest detect [--json]         List what is installed and usable
   speedtest history                 Show saved results (--limit N, --clear)
+  speedtest share                   Copy the last result card to the clipboard
   speedtest update                  Install the latest version over this one
   speedtest menubar install         Menu-bar item (macOS) or tray (Windows)
   speedtest menu [--swiftbar]       Agents and last results, as data
@@ -99,6 +103,8 @@ FLAGS
   -m, --model <model>    Model for a single target (default: the CLI's own)
   -a, --all              Same as the "all" command
       --runs <n>         Repeat the download n times (1-${MAX_RUNS}), report the median
+  -p, --parallel         Test all the agents at the same time (much quicker;
+                         each may read slightly lower than when tested alone)
       --as-configured    Keep your MCP servers, hooks, plugins and project
                          context. Default is lean: your login and model only
       --allow-permission-bypass
@@ -113,6 +119,7 @@ FLAGS
       --timeout <sec>    Per-phase time limit (default ${DEFAULT_PHASE_TIMEOUT_MS / 1000})
       --card [path]      Save an SVG card. The path must end in .svg or
                          contain a "/" (default ./${DEFAULT_CARD_PATH})
+      --no-card          Do not save the shareable result image after a run
       --json             Print only the final JSON
       --jsonl            Stream progress events as JSON lines
       --plain            Line output instead of the live gauge
@@ -299,6 +306,34 @@ async function saveCard(cardPath: string, result: SpeedtestResult, announce: boo
   }
 }
 
+/** Saves the shareable image of a finished run and says where it is. Never fails the run. */
+function offerShareCard(results: SpeedtestResult[], run: RunOptions): void {
+  if (run.noCard || results.length === 0 || !isHumanOutput(run.output)) return;
+  try {
+    const saved = saveShareCard(renderLeaderboardSvg(results, { version: `speedtest v${VERSION}` }));
+    out(`\n${c.dim('Share it:')} ${saved.pngPath ?? saved.svgPath}\n`);
+    out(`${c.dim(`Copy the image to your clipboard with: ${commandName()} share`)}\n`);
+  } catch {
+    // A card is a convenience; a read-only home directory must not turn a good run into an error.
+  }
+}
+
+function runShare(): number {
+  const card = latestShareCard();
+  if (!card) {
+    printError(`there is no result card yet. Run "${commandName()}" first.`);
+    return 1;
+  }
+  if (!card.pngPath) {
+    out(`The card is an SVG here: ${card.svgPath}\n`);
+    out('To get a PNG that can be copied and posted, install rsvg-convert (librsvg) or ImageMagick and run a test again.\n');
+    return EXIT_OK;
+  }
+  const copied = copyImageToClipboard(card.pngPath);
+  out(copied.ok ? `Copied the result card to the clipboard. Paste it anywhere.\n${card.pngPath}\n` : `Could not copy it (${copied.detail}). The image is here:\n${card.pngPath}\n`);
+  return EXIT_OK;
+}
+
 function printError(message: string): void {
   for (const text of wrapText(`speedtest-ai: ${message}`, maxLineWidth())) err(`${text}\n`);
 }
@@ -339,6 +374,7 @@ async function runSingle(spec: string, run: RunOptions, mode: BenchmarkMode): Pr
     return fail(error, false);
   }
   if (run.cardPath) await saveCard(run.cardPath, result, isHumanOutput(output));
+  offerShareCard([result], run);
   return EXIT_OK;
 }
 
@@ -408,6 +444,88 @@ async function runBatch(entries: BatchEntry[], run: RunOptions, mode: BenchmarkM
   };
   hardExitReport = report;
 
+  if (run.parallel && entries.length > 1) {
+    started = entries.length;
+    // Resolve every target first, so a typo or a missing CLI is reported before anything starts.
+    const prepared: Array<{ entry: BatchEntry; target?: PreparedTarget; error?: unknown }> = [];
+    for (const entry of entries) {
+      try {
+        prepared.push({ entry, target: await entry.prepare() });
+      } catch (error) {
+        prepared.push({ entry, error });
+      }
+    }
+    const runnable = prepared.filter((p) => p.target !== undefined);
+    const outcomes = controller.signal.aborted
+      ? []
+      : await consumeParallel(
+          runnable.map((p) => ({
+            id: p.entry.id,
+            // Two models of one agent share its name; then the label tells them apart.
+            name: runnable.filter((q) => q.entry.name === p.entry.name).length > 1 ? p.entry.label : p.entry.name,
+            events: runSpeedtestRepeated({
+              adapter: p.target!.adapter,
+              model: p.target!.model,
+              mode,
+              timeoutMs: run.timeoutMs,
+              noHistory: run.noHistory,
+              signal: controller.signal,
+              asConfigured: run.asConfigured,
+              allowPermissionBypass: run.allowPermissionBypass,
+              runs: run.runs,
+            }),
+          })),
+          {
+            mode: output === 'json' ? 'silent' : output,
+            onInterruptKey: onInterrupt,
+            describeError: (error) => {
+              const d = describeRunError(error);
+              return `${d.kind === 'timeout' ? 'timed out' : d.kind === 'interrupted' ? 'stopped' : 'failed'}: ${d.message}`;
+            },
+          }
+        );
+
+    let next = 0;
+    for (let i = 0; i < prepared.length; i++) {
+      const { entry, target, error: prepareError } = prepared[i];
+      const outcome = target ? outcomes[next++] : undefined;
+      const error = prepareError ?? outcome?.error;
+      if (human) {
+        const accent = brandPaint(entry.id) ?? kmAccent;
+        out(`\n${truncateAnsi(`${c.bold(accent(`▶ [${i + 1}/${entries.length}]`))} ${c.bold(accent(sanitizeInline(entry.name)))} ${c.dim(`(${entry.label}) [${mode}, parallel]`)}`, maxLineWidth())}\n`);
+      }
+      if (outcome?.result) {
+        results.push(outcome.result);
+        if (human) out(`${renderCompactResult(outcome.result)}\n`);
+        if (run.cardPath) await saveCard(cardPathFor(run.cardPath, entry, usedCardPaths), outcome.result, human);
+        continue;
+      }
+      const described = describeRunError(error ?? new InterruptedError());
+      // A target stopped by Ctrl-C has no result; it is neither ranked nor "failed".
+      if (described.kind === 'interrupted' || (controller.signal.aborted && !prepareError)) {
+        if (human) out(`  ${c.yellow('–')} stopped\n`);
+        continue;
+      }
+      failures.push({ targetId: entry.id, targetName: entry.name, error: described.message, kind: described.kind, failureKind: described.failureKind });
+      if (output === 'jsonl' && prepareError) {
+        out(JSON.stringify({ type: 'run:error', target: entry.id, error: described.message, kind: described.kind, failureKind: described.failureKind }) + '\n');
+      }
+      if (human) out(`  ${c.yellow('✗')} ${truncateAnsi(`${described.kind === 'timeout' ? 'timed out' : 'failed'}: ${described.message}`, Math.max(10, maxLineWidth() - 4))}\n`);
+    }
+
+    report();
+    if (!controller.signal.aborted) offerShareCard(results, run);
+    if (human && results.length > 1) {
+      for (const text of wrapText(
+        'Run in parallel: the agents shared this machine and network, so each may read a little lower than when tested alone.',
+        maxLineWidth()
+      )) out(`${c.dim(text)}\n`);
+    }
+    hardExitReport = undefined;
+    if (stopCode !== undefined) return stopCode;
+    return results.length > 0 ? EXIT_OK : EXIT_FAILED;
+  }
+
   for (let i = 0; i < entries.length; i++) {
     if (controller.signal.aborted) break;
     const entry = entries[i];
@@ -460,6 +578,7 @@ async function runBatch(entries: BatchEntry[], run: RunOptions, mode: BenchmarkM
   }
 
   report();
+  if (!controller.signal.aborted) offerShareCard(results, run);
   hardExitReport = undefined;
   if (stopCode !== undefined) return stopCode;
   return results.length > 0 ? EXIT_OK : EXIT_FAILED;
@@ -602,6 +721,8 @@ async function dispatch(command: ParsedCommand): Promise<number> {
       return EXIT_OK;
     case 'update':
       return runUpdate();
+    case 'share':
+      return runShare();
     case 'menubar': {
       const self = path.resolve(process.argv[1] ?? 'speedtest-ai');
       const outcome = command.action === 'install' ? installMenubar(self) : uninstallMenubar(self);

@@ -36,6 +36,8 @@ afterEach(() => {
   fs.rmSync(root, { recursive: true, force: true });
 });
 
+const CLEAN_PATH = [path.dirname(process.execPath), '/usr/bin', '/bin'].join(':');
+
 function install(env: Record<string, string> = {}, args: string[] = [], script = fs.readFileSync(INSTALLER, 'utf8')) {
   // HOME points at a temp directory, so the real ~/.local/bin is never touched.
   return spawnSync('sh', ['-s', '--', ...args], {
@@ -43,7 +45,9 @@ function install(env: Record<string, string> = {}, args: string[] = [], script =
     encoding: 'utf8',
     cwd: root,
     env: {
-      PATH: process.env.PATH ?? '',
+      // System tools and node only: a speedtest already installed on this machine must not be
+      // mistaken for another program that owns the name.
+      PATH: CLEAN_PATH,
       HOME: home,
       FAKE_LOG: log,
       SPEEDTEST_AI_BASE_URL: `file://${site}`,
@@ -80,7 +84,7 @@ describe.skipIf(!hasCurl || process.platform === 'win32')('install.sh', () => {
     const other = path.join(root, 'other-bin');
     fs.mkdirSync(other, { recursive: true });
     fs.writeFileSync(path.join(other, 'speedtest'), '#!/bin/sh\necho ookla\n', { mode: 0o755 });
-    const result = install({ PATH: `${other}:${process.env.PATH ?? ''}` });
+    const result = install({ PATH: `${other}:${CLEAN_PATH}` });
 
     expect(result.status).toBe(0);
     expect(fs.existsSync(path.join(home, '.local', 'bin', 'speedtest'))).toBe(false);
