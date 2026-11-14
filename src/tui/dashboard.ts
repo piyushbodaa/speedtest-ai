@@ -542,7 +542,10 @@ export function renderCompareTable(results: SpeedtestResult[], options: Leaderbo
       notes.push('(E2E) = no real stream (buffered): ranked after streaming targets, on end-to-end tok/s.');
     }
     if (sorted.some((r) => resultTags(r).includes('slow start'))) {
-      notes.push('slow start = waited 30s or more for the first token; judge it by E2E, not TOK/S.');
+      notes.push('slow start = waited 30s or more for the first token: ranked after the others; judge it by E2E.');
+      for (const r of sorted) {
+        for (const note of r.notes) if (note.includes('hidden reasoning')) notes.push(sanitizeInline(note));
+      }
     }
     if (sorted.some((r) => r.runs === 1)) {
       notes.push('Single sample per target; rerun with --runs 3 for medians and a range.');

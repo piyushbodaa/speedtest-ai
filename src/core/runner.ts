@@ -29,7 +29,14 @@ import {
   toTypedError,
 } from './errors.js';
 import { appendHistory } from './history.js';
-import { computeGrade, computeUploadPrefill, median, rankOf, RollingSpeedTracker } from './metrics.js';
+import {
+  computeGrade,
+  computeUploadPrefill,
+  median,
+  rankOf,
+  RollingSpeedTracker,
+  SLOW_START_MS,
+} from './metrics.js';
 import {
   buildDownloadPayload,
   buildPingPayload,
@@ -444,6 +451,14 @@ async function* runOnce(
 
   const download = phaseResults.download!;
   const ping = phaseResults.ping;
+
+  // A long silent start is usually the model reasoning out of sight; say so when the CLI reports it.
+  const hiddenReasoning = download.reportedReasoningTokens ?? 0;
+  if (typeof download.ttftMs === 'number' && download.ttftMs >= SLOW_START_MS && hiddenReasoning >= 500) {
+    pushUnique(notes, [
+      `${adapter.name}: the model spent ${hiddenReasoning} hidden reasoning tokens before its first visible token (${(download.ttftMs / 1000).toFixed(0)}s wait); a lighter model or lower reasoning effort will start sooner`,
+    ]);
+  }
   const upload = phaseResults.upload;
   const toolLoop = phaseResults.tool_loop;
   const { rankTps, rankMetric } = rankOf(download);

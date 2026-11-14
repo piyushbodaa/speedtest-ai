@@ -11,6 +11,7 @@ import {
   wrapText,
 } from '../tui/ansi.js';
 import type { HistoricalDelta, SpeedGrade, SpeedtestResult } from '../types.js';
+import { isSlowStart } from './metrics.js';
 
 function xmlEscape(str: string): string {
   return str
@@ -76,15 +77,12 @@ export function formatGrade(result: Pick<SpeedtestResult, 'summary'>): string {
 }
 
 /** Caveat tags shown next to a result: buffered / experimental / short / isolation / samples. */
-/** A first token this late dominates the wait, whatever the decode rate says. */
-export const SLOW_START_MS = 30_000;
-
 export function resultTags(result: SpeedtestResult): string[] {
   const tags: string[] = [];
   if (result.summary.isBuffered) tags.push('buffered');
   if (result.tier === 'experimental') tags.push('experimental');
   if (result.summary.shortOutput) tags.push('short');
-  if (typeof result.summary.ttftMs === 'number' && result.summary.ttftMs >= SLOW_START_MS) tags.push('slow start');
+  if (isSlowStart(result)) tags.push('slow start');
   if (result.isolation) tags.push(result.isolation);
   if (result.category === 'demo') tags.push('simulated');
   if (result.runs > 1) {

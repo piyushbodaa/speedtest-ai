@@ -66,14 +66,20 @@ export function rankOf(phase: Pick<PhaseResult, 'streaming' | 'decodeTps' | 'e2e
   return { rankTps: phase.e2eTps, rankMetric: 'e2e' };
 }
 
+/** A first token this late dominates the wait, whatever the decode rate says. */
+export const SLOW_START_MS = 30_000;
+
+export function isSlowStart(result: SpeedtestResult): boolean {
+  return typeof result.summary.ttftMs === 'number' && result.summary.ttftMs >= SLOW_START_MS;
+}
+
 /**
- * Leaderboard order: every streaming target (by decode TPS, descending) ranks before every
- * buffered target (by E2E TPS, descending).
+ * Leaderboard order: streaming targets by decode TPS, then streaming targets that kept the user
+ * waiting SLOW_START_MS or more for the first token, then buffered targets by E2E TPS.
  */
 export function compareResultsByRank(a: SpeedtestResult, b: SpeedtestResult): number {
-  const aStream = a.summary.rankMetric === 'decode' ? 0 : 1;
-  const bStream = b.summary.rankMetric === 'decode' ? 0 : 1;
-  if (aStream !== bStream) return aStream - bStream;
+  const group = (r: SpeedtestResult) => (r.summary.rankMetric !== 'decode' ? 2 : isSlowStart(r) ? 1 : 0);
+  if (group(a) !== group(b)) return group(a) - group(b);
   return b.summary.rankTps - a.summary.rankTps;
 }
 

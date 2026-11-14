@@ -241,8 +241,8 @@ The codes are the same with `--json` and `--jsonl`.
 
 ### Terminal
 
-The live gauge scales to the terminal width up to 68 columns and needs at least 40 columns and 16
-rows; on a smaller terminal, with `--plain`, or when the output is not a terminal, progress is
+The live view is a speedometer: one dial with the current tokens per second in large digits, and
+ping, peak and token count underneath. It needs at least 40 columns and 20 rows; on a smaller terminal, with `--plain`, or when the output is not a terminal, progress is
 printed line by line. All output fits 80 columns. `NO_COLOR` turns colour off.
 
 ## JSON output
