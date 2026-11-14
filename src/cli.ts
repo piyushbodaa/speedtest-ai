@@ -11,7 +11,7 @@ import { parseTargetSpec, resolveAdapter } from './adapters/registry.js';
 import { spawnSync } from 'node:child_process';
 import { killAllChildren } from './adapters/utils/spawn.js';
 import { HARNESS_CATALOG } from './adapters/catalog.js';
-import { brandPaint, kmAccent, PRODUCT_BYLINE, PRODUCT_NAME } from './tui/brand.js';
+import { brandPaint, commandName, kmAccent, PRODUCT_BYLINE, PRODUCT_NAME } from './tui/brand.js';
 import {
   DEFAULT_CARD_PATH,
   parseCliArgs,
@@ -21,7 +21,7 @@ import {
 } from './cli-args.js';
 import { renderSvgCard } from './core/card.js';
 import { detectTargets } from './core/detect.js';
-import { InterruptedError } from './core/errors.js';
+import { InterruptedError, SkippedError } from './core/errors.js';
 import { clearHistory, loadHistory, readHistory } from './core/history.js';
 import { buildMenuModel, renderSwiftBarMenu } from './core/menu.js';
 import { installMenubar, uninstallMenubar } from './core/menubar.js';
@@ -47,7 +47,7 @@ import {
   type TargetInfo,
 } from './types.js';
 
-const VERSION = '0.8.0';
+const VERSION = '0.9.0';
 
 const EXIT_OK = 0;
 const EXIT_FAILED = 1;
@@ -59,23 +59,24 @@ const EXIT_SIGHUP = 129;
 const HARD_EXIT_AFTER_MS = 2000;
 
 function helpText(): string {
-  return `${PRODUCT_NAME} · speedtest-ai v${VERSION}
+  return `${PRODUCT_NAME} · speedtest v${VERSION}
 A speed test for AI agent CLIs and models
 ${PRODUCT_BYLINE}
 
 USAGE
-  speedtest-ai all [flags]            Benchmark every installed agent CLI
-  speedtest-ai                        Pick a target interactively
-  speedtest-ai run -t <target>        Benchmark one target (or target:model)
-  speedtest-ai compare -t <t1,t2,..>  Benchmark several, with a leaderboard
-  speedtest-ai demo                   Simulated run, no model is called
-  speedtest-ai detect [--json]        List what is installed and usable
-  speedtest-ai history                Show saved results (--limit N, --clear)
-  speedtest-ai update                 Install the latest version over this one
-  speedtest-ai menubar install        Menu-bar item (macOS) or tray (Windows)
-  speedtest-ai menu [--swiftbar]      Agents and last results, as data
+  speedtest                         Test every installed agent CLI
+  speedtest <agent> [<agent>...]    Test one agent, or compare several
+  speedtest pick                    Choose a target and mode interactively
+  speedtest run -t <target>         Full four-phase test of one target[:model]
+  speedtest compare -t <t1,t2,..>   Benchmark several, with a leaderboard
+  speedtest demo                    Simulated run, no model is called
+  speedtest detect [--json]         List what is installed and usable
+  speedtest history                 Show saved results (--limit N, --clear)
+  speedtest update                  Install the latest version over this one
+  speedtest menubar install         Menu-bar item (macOS) or tray (Windows)
+  speedtest menu [--swiftbar]       Agents and last results, as data
 
-  "all", "run" and "compare" send real prompts and spend real model tokens.
+  Every test sends real prompts and spend real model tokens.
 
 TARGETS (-t)
 ${targetsHelpLines(78).join('\n')}
@@ -205,7 +206,7 @@ function assertKnownTarget(spec: string, run: RunOptions): void {
   const { id } = parseTargetSpec(spec);
   if (id === '') throw new UsageError(`"${spec}" is not a target. Write it as target or target:model.`);
   if (run.baseUrl !== undefined || knownTargetIds().includes(id)) return;
-  throw new UsageError(`Unknown target "${id}". Run "speedtest-ai detect" to list the targets.`);
+  throw new UsageError(`Unknown target "${id}". Run "${commandName()} detect" to list the targets.`);
 }
 
 async function prepareTarget(
@@ -242,29 +243,49 @@ function isHumanOutput(output: OutputMode): boolean {
   return output === 'tui' || output === 'plain';
 }
 
-function runPrepared(
+/** Set when the user pressed s on the target that is running; cleared when the next one starts. */
+let skipRequested = false;
+
+async function runPrepared(
   target: PreparedTarget,
   run: RunOptions,
   mode: BenchmarkMode,
-  view: { output: OutputMode; compact: boolean }
+  view: { output: OutputMode; compact: boolean; skippable?: boolean }
 ): Promise<SpeedtestResult> {
+  // One target gets its own controller, so skipping it does not stop the batch.
+  skipRequested = false;
+  const local = new AbortController();
+  const forward = () => local.abort(controller.signal.reason);
+  if (controller.signal.aborted) forward();
+  else controller.signal.addEventListener('abort', forward, { once: true });
   const events = runSpeedtestRepeated({
     adapter: target.adapter,
     model: target.model,
     mode,
     timeoutMs: run.timeoutMs,
     noHistory: run.noHistory,
-    signal: controller.signal,
+    signal: local.signal,
     asConfigured: run.asConfigured,
     allowPermissionBypass: run.allowPermissionBypass,
     runs: run.runs,
   });
-  return consumeSpeedtestEvents(events, {
-    mode: view.output,
-    noHistory: run.noHistory,
-    compact: view.compact,
-    onInterruptKey: onInterrupt,
-  });
+  try {
+    return await consumeSpeedtestEvents(events, {
+      mode: view.output,
+      noHistory: run.noHistory,
+      compact: view.compact,
+      onInterruptKey: onInterrupt,
+      onSkipKey: view.skippable
+        ? () => {
+            if (skipRequested || local.signal.aborted) return;
+            skipRequested = true;
+            local.abort(new SkippedError());
+          }
+        : undefined,
+    });
+  } finally {
+    controller.signal.removeEventListener('abort', forward);
+  }
 }
 
 async function saveCard(cardPath: string, result: SpeedtestResult, announce: boolean): Promise<void> {
@@ -402,11 +423,23 @@ async function runBatch(entries: BatchEntry[], run: RunOptions, mode: BenchmarkM
       const target = await entry.prepare();
       if (controller.signal.aborted) throw new InterruptedError();
       streamedError = true;
-      const result = await runPrepared(target, run, mode, { output: output === 'json' ? 'silent' : output, compact: true });
+      const result = await runPrepared(target, run, mode, {
+        output: output === 'json' ? 'silent' : output,
+        compact: true,
+        skippable: entries.length > 1,
+      });
       results.push(result);
       if (run.cardPath) await saveCard(cardPathFor(run.cardPath, entry, usedCardPaths), result, human);
     } catch (error) {
       const described = describeRunError(error);
+      if (skipRequested && !controller.signal.aborted) {
+        // The user moved on from this one; the rest of the batch still runs.
+        skipRequested = false;
+        failures.push({ targetId: entry.id, targetName: entry.name, error: 'skipped by you', kind: 'failed' });
+        if (output === 'jsonl') out(JSON.stringify({ type: 'run:error', target: entry.id, error: 'skipped by you', kind: 'failed' }) + '\n');
+        if (human) out(`  ${c.yellow('–')} skipped\n`);
+        continue;
+      }
       if (described.kind === 'interrupted' || controller.signal.aborted) {
         // The interrupted target was started but has no result; it is neither ranked nor "failed".
         started = i;
@@ -457,7 +490,7 @@ async function runAll(includeApis: boolean, run: RunOptions, mode: BenchmarkMode
     }
     printError(message);
     for (const skip of skips) printError(`  ${skip.id}: ${sanitizeInline(skip.reason)}`);
-    printError('Run "speedtest-ai detect" for details, or "speedtest-ai demo" for a simulated run.');
+    printError(`Run "${commandName()} detect" for details, or "${commandName()} demo" for a simulated run.`);
     return EXIT_NOTHING_DETECTED;
   }
 
@@ -594,7 +627,7 @@ async function dispatch(command: ParsedCommand): Promise<number> {
         out(JSON.stringify(audited, null, 2) + '\n');
       } else {
         out(renderDetectTable(targets) + '\n');
-        const hint = 'Benchmark them all: speedtest-ai all   ·   one: speedtest-ai run -t <id>';
+        const hint = `Test them all: ${commandName()}   ·   one: ${commandName()} <id>`;
         out('\n' + wrapText(hint, maxLineWidth()).map((l) => c.dim(l)).join('\n') + '\n');
       }
       return EXIT_OK;

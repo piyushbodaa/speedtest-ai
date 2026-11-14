@@ -61,12 +61,29 @@ function Install-SpeedtestAi {
     foreach ($name in 'speedtest-ai', 'kmspeed', 'aispeed') {
       [System.IO.File]::WriteAllText((Join-Path $installDir "$name.cmd"), $shim, [System.Text.Encoding]::ASCII)
     }
+    # The everyday command is "speedtest". Ookla's internet speed test uses the same name, so the
+    # short name is only added when nothing else owns it.
+    $shortShim = Join-Path $installDir 'speedtest.cmd'
+    $other = Get-Command speedtest -ErrorAction SilentlyContinue | Where-Object { $_.Source -ne $shortShim } | Select-Object -First 1
+    $script:cmd = 'speedtest-ai'
+    if (-not $other) {
+      [System.IO.File]::WriteAllText($shortShim, $shim, [System.Text.Encoding]::ASCII)
+      $script:cmd = 'speedtest'
+    } else {
+      $script:otherSpeedtest = $other.Source
+    }
   } finally {
     Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
   }
 
   Write-Host ''
   Write-Host "Installed KM AI Speed Test ($version) to $installDir"
+  if ($script:cmd -eq 'speedtest') {
+    Write-Host 'Run it as: speedtest   (also: speedtest-ai, kmspeed)'
+  } else {
+    Write-Host "Another program named speedtest is already installed ($($script:otherSpeedtest)),"
+    Write-Host 'so that short name was left alone. Run this one as: speedtest-ai   (also: kmspeed)'
+  }
 
   $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
   $onPath = ($userPath -split ';') -contains $installDir
@@ -79,11 +96,11 @@ function Install-SpeedtestAi {
 
   Write-Host ''
   Write-Host 'Commands:'
-  Write-Host '  speedtest-ai all          speed test every installed AI agent CLI and compare'
-  Write-Host '  speedtest-ai detect       list which CLIs and APIs were found'
-  Write-Host '  speedtest-ai run -t ID    test one target (for example: -t claude)'
-  Write-Host '  speedtest-ai demo         simulated run, no model is called'
-  Write-Host '  speedtest-ai update       install the latest version over this one'
+  Write-Host "  $($script:cmd)               speed test every installed AI agent CLI and compare"
+  Write-Host "  $($script:cmd) claude        test one agent (also: codex, agy, grok, muse, ...)"
+  Write-Host "  $($script:cmd) detect        list which CLIs and APIs were found"
+  Write-Host "  $($script:cmd) demo          simulated run, no model is called"
+  Write-Host "  $($script:cmd) update        install the latest version over this one"
   Write-Host ''
   Write-Host 'A real test sends a short prompt to each agent CLI and uses model tokens from your accounts.'
 }

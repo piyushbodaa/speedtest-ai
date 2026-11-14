@@ -227,7 +227,7 @@ export async function resolveAdapter(opts: ResolveTargetOptions): Promise<Resolv
   }
 
   throw new TargetFailedError(
-    `Unknown target "${opts.targetSpec}". Run "speedtest-ai detect" to see available targets.`,
+    `Unknown target "${opts.targetSpec}". Run "speedtest detect" to see available targets.`,
     { kind: 'not_found' }
   );
 }

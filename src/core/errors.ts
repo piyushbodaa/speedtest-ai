@@ -17,6 +17,16 @@ export class PhaseTimeoutError extends Error {
 }
 
 /** The user (or the embedding program) asked the run to stop. Never converted into a result. */
+/** The user asked to move on to the next target. The rest of the batch continues. */
+export class SkippedError extends Error {
+  readonly skipped = true as const;
+
+  constructor(message = 'Skipped') {
+    super(message);
+    this.name = 'SkippedError';
+  }
+}
+
 export class InterruptedError extends Error {
   // Also keeps the class structurally distinct, so type guards narrow the other errors correctly.
   readonly interrupted = true as const;

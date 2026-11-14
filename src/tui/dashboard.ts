@@ -102,6 +102,8 @@ export interface ConsumeOptions {
   compact?: boolean;
   /** Called when Ctrl-C is typed while the live gauge holds the terminal in raw mode. */
   onInterruptKey?: () => void;
+  /** Called when the user presses s to give up on this target and carry on with the next. */
+  onSkipKey?: () => void;
 }
 
 async function historyDelta(result: SpeedtestResult, noHistory?: boolean): Promise<HistoricalDelta | undefined> {
@@ -119,14 +121,29 @@ function liveGaugeFits(): boolean {
   return size.isTTY && size.columns >= MIN_FRAME_COLUMNS && size.rows >= MIN_FRAME_ROWS;
 }
 
+const PLAIN_WAIT_STEP_S = 30;
+
 /** Line-by-line progress for pipes, logs and terminals too small for the gauge. */
 function createPlainReporter(compact: boolean) {
   const write = (text: string) => {
     const size = termSize();
     out(`${size.isTTY ? truncateAnsi(text, maxLineWidth(size)) : text}\n`);
   };
+  // Seconds of silence already reported for the current phase.
+  let waitReported = 0;
   return {
     onEvent(ev: SpeedtestEvent): void {
+      if (ev.type === 'phase:start') waitReported = 0;
+      if (ev.type === 'gauge:tick') {
+        // A model that reasons for a minute before answering must not look like a hang.
+        const tick = ev.tick;
+        const waited = Math.floor(tick.elapsedMs / 1000 / PLAIN_WAIT_STEP_S) * PLAIN_WAIT_STEP_S;
+        if (tick.stage !== 'streaming' && tick.tokensGenerated === 0 && waited > waitReported) {
+          waitReported = waited;
+          write(`      .. still waiting for the first token (${waited}s). Nothing is stuck; some models think first.`);
+        }
+        return;
+      }
       if (ev.type === 'run:start') {
         if (compact) return;
         const model = ev.model ? ` (${sanitizeInline(ev.model)})` : '';
@@ -260,7 +277,12 @@ export async function consumeSpeedtestEvents(
   };
 
   process.stdout.on('resize', onResize);
-  if (options.onInterruptKey) holdRawInput(options.onInterruptKey);
+  const onSkipKey = options.onSkipKey;
+  if (options.onInterruptKey) {
+    holdRawInput(options.onInterruptKey, (data) => {
+      if (onSkipKey && (data.includes(0x73) || data.includes(0x53))) onSkipKey();
+    });
+  }
   hideCursor();
 
   try {
@@ -284,7 +306,16 @@ export async function consumeSpeedtestEvents(
           completedPhases: {},
           skippedPhases: {},
           frameCounter: 0,
+          canSkip: Boolean(onSkipKey),
         };
+        const started = state;
+        // How long this target took to its first token last time, to put a long wait in context.
+        void loadHistory()
+          .then((entries) => {
+            const last = entries.filter((e) => e.targetId === ev.target).at(-1);
+            if (last && typeof last.summary.ttftMs === 'number') started.expectedTtftMs = last.summary.ttftMs;
+          })
+          .catch(() => {});
         drawFrame();
       } else if (!state) {
         continue;
@@ -608,7 +639,7 @@ export function renderHistoryTable(
       : '';
 
   if (history.length === 0) {
-    const empty = wrapText('No speedtest runs recorded yet. Try "speedtest-ai demo" or "speedtest-ai all".', width)
+    const empty = wrapText('No speedtest runs recorded yet. Try "speedtest demo" or "speedtest".', width)
       .map((l) => c.dim(l))
       .join('\n');
     return legacyNote ? `${empty}\n${legacyNote}` : empty;

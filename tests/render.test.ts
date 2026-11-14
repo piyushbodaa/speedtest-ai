@@ -311,6 +311,33 @@ describe('live gauge frame', () => {
     }
   });
 
+  it('counts a long wait on the dial instead of freezing at 0.0, and offers the skip key', () => {
+    const waiting = (elapsedMs: number, extra: Partial<LiveDashboardState> = {}): string =>
+      stripAnsi(
+        renderDashboardFrame(
+          {
+            ...states.streaming,
+            completedPhases: {},
+            canSkip: true,
+            ...extra,
+            tick: { ...states.streaming.tick!, stage: 'waiting', elapsedMs, currentTps: 0, peakTps: 0, tokensGenerated: 0 },
+          },
+          68
+        )
+      );
+    // Ordinary start-up keeps the speed dial.
+    expect(waiting(2000)).toContain('tokens / sec');
+    const long = waiting(72_000, { expectedTtftMs: 87_000 });
+    expect(long).toContain('seconds waiting');
+    expect(long).toContain('90s');
+    expect(long).toContain('took 87s last time');
+    expect(long).toContain('press s to skip');
+    expect(long).not.toContain('tokens / sec');
+    // Without history it still says how long it has been, and the hint is not cut off.
+    expect(waiting(40_000)).toMatch(/waiting for first token · 40s · press s to skip/);
+    expect(waiting(40_000, { canSkip: false })).not.toContain('press s to skip');
+  });
+
   it('shows ping, peak and tokens under the dial, and the steps in standard mode', () => {
     const frame = stripAnsi(renderDashboardFrame(states.streaming, 68));
     expect(frame).toContain('Peak 175');

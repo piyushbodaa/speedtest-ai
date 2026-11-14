@@ -77,7 +77,7 @@ export function renderPickerLines(
 
   const footer: string[] = [];
   if (missingIds.length > 0 && size.rows >= 12) {
-    footer.push(fit(c.gray(`  ${missingIds.length} more not found; see "speedtest-ai detect"`)));
+    footer.push(fit(c.gray(`  ${missingIds.length} more not found; see "speedtest detect"`)));
   }
 
   // One row is left for the cursor below the menu, one for a possible "more" marker.

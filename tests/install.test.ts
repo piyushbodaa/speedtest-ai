@@ -71,7 +71,22 @@ describe.skipIf(!hasCurl || process.platform === 'win32')('install.sh', () => {
     expect(result.stdout).toContain('No interactive terminal, so no speed test was started');
     expect(result.stdout).toContain('is not on your PATH');
     expect(fs.existsSync(log)).toBe(false);
-    expect(fs.readdirSync(path.join(home, '.local', 'bin')).sort()).toEqual(['aispeed', 'kmspeed', 'speedtest-ai']);
+    expect(fs.readdirSync(path.join(home, '.local', 'bin')).sort()).toEqual(['aispeed', 'kmspeed', 'speedtest', 'speedtest-ai']);
+    expect(result.stdout).toContain('Run it as: speedtest ');
+  });
+
+  it('leaves the speedtest name alone when another program already owns it', () => {
+    // Ookla's internet speed test is also called "speedtest".
+    const other = path.join(root, 'other-bin');
+    fs.mkdirSync(other, { recursive: true });
+    fs.writeFileSync(path.join(other, 'speedtest'), '#!/bin/sh\necho ookla\n', { mode: 0o755 });
+    const result = install({ PATH: `${other}:${process.env.PATH ?? ''}` });
+
+    expect(result.status).toBe(0);
+    expect(fs.existsSync(path.join(home, '.local', 'bin', 'speedtest'))).toBe(false);
+    expect(result.stdout).toContain('Another program named speedtest is already installed');
+    expect(result.stdout).toContain('Run this one as: speedtest-ai');
+    expect(fs.readFileSync(path.join(other, 'speedtest'), 'utf8')).toContain('ookla');
   });
 
   it('honours SPEEDTEST_NO_AUTO_RUN=1 and --no-run', () => {

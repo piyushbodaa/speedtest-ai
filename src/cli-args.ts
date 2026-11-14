@@ -1,4 +1,5 @@
 import { parseArgs } from 'node:util';
+import { knownTargetIds } from './adapters/catalog.js';
 import { DEMO_PROFILE_NAMES, isDemoProfileName } from './adapters/providers/demo.js';
 import { DEFAULT_PHASE_TIMEOUT_MS, MAX_RUNS } from './core/runner.js';
 import type { BenchmarkMode } from './types.js';
@@ -44,10 +45,10 @@ export type ParsedCommand =
   | { kind: 'run'; targetSpec: string; run: RunOptions }
   | { kind: 'compare'; specs: string[]; run: RunOptions }
   | { kind: 'all'; includeApis: boolean; run: RunOptions }
-  /** No command and no target: the picker on a terminal, the overview otherwise. */
+  /** `pick`: the interactive picker on a terminal, the overview otherwise. */
   | { kind: 'default'; run: RunOptions };
 
-const COMMANDS = ['all', 'run', 'demo', 'compare', 'detect', 'history', 'update', 'menu', 'menubar', 'help'] as const;
+const COMMANDS = ['all', 'run', 'demo', 'compare', 'detect', 'history', 'update', 'menu', 'menubar', 'pick', 'help'] as const;
 type CommandName = (typeof COMMANDS)[number];
 
 function looksLikeCardPath(token: string): boolean {
@@ -150,14 +151,29 @@ export function parseCliArgs(rawArgv: string[]): ParsedCommand {
   if (values.help) return { kind: 'help' };
   if (values.version) return { kind: 'version' };
 
-  const first = positionals[0];
-  if (first !== undefined && !(COMMANDS as readonly string[]).includes(first)) {
-    throw new UsageError(`Unknown command "${first}". Commands: ${COMMANDS.filter((n) => n !== 'help').join(', ')}.`);
+  // `speedtest claude` tests that agent; `speedtest claude codex` compares them. A name is taken
+  // as a target only when it is one this build knows, so a typo is still reported as a typo.
+  let shortcut = false;
+  if (positionals.length > 0 && !(COMMANDS as readonly string[]).includes(positionals[0])) {
+    const known = knownTargetIds();
+    const isTarget = (word: string) => known.includes(word.split(':')[0].trim().toLowerCase());
+    if (!positionals.every(isTarget)) {
+      const unknown = positionals.find((word) => !isTarget(word))!;
+      throw new UsageError(
+        `Unknown command or agent "${unknown}". Commands: ${COMMANDS.filter((n) => n !== 'help').join(', ')}. Agents: see "speedtest detect".`
+      );
+    }
+    if (values.target !== undefined) throw new UsageError('Name the agent once: either "speedtest claude" or "-t claude".');
+    (values as { target?: string }).target = positionals.join(',');
+    shortcut = true;
+    positionals.splice(0, positionals.length, positionals.length > 1 ? 'compare' : 'run');
   }
+
+  const first = positionals[0];
   if (first === 'menubar') {
     const action = positionals[1];
     if (positionals.length !== 2 || (action !== 'install' && action !== 'uninstall')) {
-      throw new UsageError('Usage: speedtest-ai menubar install | uninstall');
+      throw new UsageError('Usage: speedtest menubar install | uninstall');
     }
     return { kind: 'menubar', action };
   }
@@ -222,6 +238,8 @@ export function parseCliArgs(rawArgv: string[]): ParsedCommand {
     baseUrl: values['base-url'],
     apiKey: values['api-key'],
   };
+  // Naming an agent is the everyday form, so it runs the everyday (quick) test.
+  if (shortcut && run.mode === undefined) run.mode = 'quick';
   if (run.cardPath !== undefined && run.cardPath.trim() === '') {
     throw new UsageError('--card expects a file path.');
   }
@@ -290,7 +308,7 @@ export function parseCliArgs(rawArgv: string[]): ParsedCommand {
   if (command === 'run' || values.target !== undefined || values.cmd !== undefined || values['base-url'] !== undefined) {
     const targetSpec = values.target?.trim() || (values.cmd !== undefined ? 'cmd' : values['base-url'] !== undefined ? 'custom' : '');
     if (!targetSpec) {
-      throw new UsageError('run needs a target: -t <target[:model]> (see "speedtest-ai detect").');
+      throw new UsageError('run needs a target: -t <target[:model]> (see "speedtest detect").');
     }
     if (targetSpec.includes(',')) {
       throw new UsageError('run takes one target; use "compare -t a,b" for several.');
@@ -308,7 +326,9 @@ export function parseCliArgs(rawArgv: string[]): ParsedCommand {
 
   reject('--model', values.model, 'a target (add -t <target>)');
   reject('--api-key', values['api-key'], 'a target (add -t <target>)');
-  return { kind: 'default', run };
+  if (command === 'pick') return { kind: 'default', run };
+  // No command and no agent: test them all.
+  return { kind: 'all', includeApis: false, run };
 }
 
 function validateDemoSpec(spec: string): void {

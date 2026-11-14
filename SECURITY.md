@@ -42,7 +42,7 @@ is visible to other processes on the machine while the test runs, so prefer the 
 - Results: `~/.local/share/speedtest-ai/history.json`, readable by you only. It holds the timings,
   token counts and model names, not the text the model wrote.
 - The menu-bar plugin (macOS), tray script (Windows) and Omarchy plugin only read that file through
-  `speedtest-ai menu` and start tests. They make no network requests of their own.
+  `speedtest menu` and start tests. They make no network requests of their own.
 
 Remove everything with the uninstall steps in the README.
 
@@ -85,8 +85,8 @@ npm ci && npm test && npm run build
 node dist/cli.cjs demo      # simulated run, calls no model
 ```
 
-**See what it would run.** `speedtest-ai detect --json` lists, for each CLI, the exact invocation and
-what the lean mode switches off. `speedtest-ai demo` exercises the whole program without starting
+**See what it would run.** `speedtest detect --json` lists, for each CLI, the exact invocation and
+what the lean mode switches off. `speedtest demo` exercises the whole program without starting
 any agent.
 
 ## Limits you should know about

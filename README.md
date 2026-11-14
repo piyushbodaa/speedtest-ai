@@ -1,11 +1,11 @@
-# KM AI Speed Test (`speedtest-ai`)
+# KM AI Speed Test (`speedtest`)
 
-By [Krutrim Mulyankan](https://krutrimmulyankan.in/speedtest). A speed test for AI agent CLIs, in the spirit of a WiFi speed test. `speedtest-ai all` finds the
+By [Krutrim Mulyankan](https://krutrimmulyankan.in/speedtest). A speed test for AI agent CLIs, in the spirit of a WiFi speed test. `speedtest` finds the
 agent CLIs installed on your machine (`claude`, `codex`, `agy`, `grok`, `muse`, ...), sends each one
 the same prompt, and reports a time to first token and a tokens-per-second figure that can be
 compared between them.
 
-Version 0.8.0. Linux, macOS and Windows. Node.js 20 or newer, no runtime dependencies.
+Version 0.9.0. Linux, macOS and Windows. Node.js 20 or newer, no runtime dependencies.
 
 > `all`, `run` and `compare` call the real CLIs with your accounts. They send real prompts and
 > **spend real model tokens**. `demo` and `detect` do not call any model.
@@ -17,7 +17,7 @@ curl -fsSL https://krutrimmulyankan.in/speedtest/install.sh | sh
 ```
 
 The installer downloads one self-contained file, checks its SHA-256, and puts it at
-`~/.local/bin/speedtest-ai` with an `aispeed` alias next to it. It warns if that directory or
+`~/.local/bin/speedtest-ai`, with `speedtest` as the everyday name next to it (plus `kmspeed`). If another program called `speedtest` is already installed, such as Ookla's internet speed test, that name is left alone and you use `speedtest-ai`. It warns if that directory or
 `node` is not on your `PATH`.
 
 When run in an interactive terminal it then offers a first speed test: it lists the CLIs it found,
@@ -46,7 +46,7 @@ by the maintainers yet, so treat results there as new.
 ### Menu bar and tray
 
 ```sh
-speedtest-ai menubar install     # and: speedtest-ai menubar uninstall
+speedtest menubar install     # and: speedtest menubar uninstall
 ```
 
 - **macOS** adds a plugin for [SwiftBar](https://swiftbar.app), a free menu-bar host
@@ -56,14 +56,14 @@ speedtest-ai menubar install     # and: speedtest-ai menubar uninstall
   menu, started with Windows.
 - **Omarchy** has its own plugin: `omarchy plugin add https://github.com/piyushbodaa/omarchy-km-ai-speedtest.git --enable`.
 
-Both front ends read `speedtest-ai menu` and run tests in a terminal, where the live speedometer is
+Both front ends read `speedtest menu` and run tests in a terminal, where the live speedometer is
 drawn. They are built and exercised in CI on macOS and Windows runners (the plugin prints its menu,
 the tray script builds its menu), but nobody has looked at them on a real Mac or PC yet.
 
 ### Update
 
 ```sh
-speedtest-ai update
+speedtest update
 ```
 
 This re-runs the hosted installer over the existing install (checksum verified, no benchmark is
@@ -73,6 +73,7 @@ started). On v0.3.0 or older, which has no `update` command, run the install com
 
 ```sh
 rm -f ~/.local/bin/speedtest-ai ~/.local/bin/aispeed ~/.local/bin/kmspeed
+[ "$(readlink ~/.local/bin/speedtest)" = speedtest-ai ] && rm ~/.local/bin/speedtest
 rm -rf ~/.local/share/speedtest-ai     # saved results
 ```
 
@@ -87,17 +88,20 @@ node dist/cli.cjs demo
 ## Quick start
 
 ```sh
-speedtest-ai all                 # benchmark every installed agent CLI (spends tokens)
-speedtest-ai                     # pick a target from a menu
-speedtest-ai detect              # what is installed and usable; calls no model
-speedtest-ai demo                # simulated run to see the display; calls no model
+speedtest                 # benchmark every installed agent CLI (spends tokens)
+speedtest                        # test every installed agent CLI
+speedtest claude                 # test one agent (codex, agy, grok, muse, ...)
+speedtest claude codex           # compare a few
+speedtest pick                   # choose a target and mode from a menu
+speedtest detect              # what is installed and usable; calls no model
+speedtest demo                # simulated run to see the display; calls no model
 
-speedtest-ai run -t claude                  # one target, all four phases
-speedtest-ai run -t codex --quick           # one target, download only
-speedtest-ai run -t claude -m sonnet        # a specific model instead of the CLI's own
-speedtest-ai compare -t claude,codex,grok   # several targets and a leaderboard
-speedtest-ai all --runs 3                   # median of three samples per CLI
-speedtest-ai history                        # saved results
+speedtest run -t claude                  # one target, all four phases
+speedtest run -t codex --quick           # one target, download only
+speedtest run -t claude -m sonnet        # a specific model instead of the CLI's own
+speedtest compare -t claude,codex,grok   # several targets and a leaderboard
+speedtest --runs 3                   # median of three samples per CLI
+speedtest history                        # saved results
 ```
 
 ## What is measured
@@ -184,7 +188,7 @@ How each verified CLI is slimmed down in lean mode:
 | --- | --- |
 | `claude` | `--safe-mode`: login and model kept; MCP servers, hooks and plugins off |
 | `codex` | plugins, apps, hooks, memories and your MCP servers disabled |
-| `agy` | empty temporary directory; permissions are skipped only for the tool-loop phase |
+| `agy` | empty temporary directory; its tool-loop phase needs `--allow-permission-bypass` and is skipped without it |
 | `grok` | tool list reduced to what the phase needs |
 | `muse` | empty preset, reminders disabled |
 
@@ -196,7 +200,7 @@ model name in the result is the one the CLI reports.
 
 ## Supported targets
 
-`speedtest-ai detect` shows what is found on your machine and `speedtest-ai --help` prints the
+`speedtest detect` shows what is found on your machine and `speedtest --help` prints the
 full, current list.
 
 - **Verified** (tested against the real CLI): `claude`, `codex`, `agy`, `grok`, `muse`.
@@ -228,13 +232,13 @@ behind the shim.
 ## Command reference
 
 ```text
-speedtest-ai all [flags]            Benchmark every installed agent CLI
-speedtest-ai                        Pick a target interactively
-speedtest-ai run -t <target>        Benchmark one target (or target:model)
-speedtest-ai compare -t <t1,t2,..>  Benchmark several, with a leaderboard
-speedtest-ai demo                   Simulated run, no model is called
-speedtest-ai detect [--json]        List what is installed and usable
-speedtest-ai history                Show saved results (--limit N, --clear)
+speedtest [flags]            Benchmark every installed agent CLI
+speedtest pick                      Pick a target interactively
+speedtest run -t <target>        Benchmark one target (or target:model)
+speedtest compare -t <t1,t2,..>  Benchmark several, with a leaderboard
+speedtest demo                   Simulated run, no model is called
+speedtest detect [--json]        List what is installed and usable
+speedtest history                Show saved results (--limit N, --clear)
 ```
 
 | Flag | Meaning |
@@ -279,6 +283,10 @@ goes to (`| head -1`) stops the run quietly.
 The codes are the same with `--json` and `--jsonl`.
 
 ### Terminal
+
+Some models reason silently for a long time before they answer (a minute or more). While that
+happens the dial counts the wait instead of sitting at 0.0, says how long that agent took last time,
+and **`s` skips that agent** and moves on to the next. Ctrl-C stops the whole run.
 
 The live view is a speedometer: one dial with the current tokens per second in large digits, and
 ping, peak and token count underneath. It needs at least 40 columns and 20 rows; on a smaller terminal, with `--plain`, or when the output is not a terminal, progress is

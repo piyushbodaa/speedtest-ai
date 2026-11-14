@@ -83,9 +83,18 @@ describe('commands', () => {
     expect(parse('-v')).toEqual({ kind: 'version' });
   });
 
-  it('falls back to the default command with no arguments', () => {
-    expect(parse()).toMatchObject({ kind: 'default' });
+  it('tests every agent with no arguments, and opens the picker with "pick"', () => {
+    expect(parse()).toMatchObject({ kind: 'all', includeApis: false });
     expect(runOf(parse('--full')).mode).toBe('full');
+    expect(parse('pick')).toMatchObject({ kind: 'default' });
+  });
+
+  it('takes agent names as the command', () => {
+    expect(parse('claude')).toMatchObject({ kind: 'run', targetSpec: 'claude', run: { mode: 'quick' } });
+    expect(parse('agy:gemini-4-carbon-low', '--standard')).toMatchObject({ kind: 'run', targetSpec: 'agy:gemini-4-carbon-low', run: { mode: 'standard' } });
+    expect(parse('claude', 'codex', 'muse')).toMatchObject({ kind: 'compare', specs: ['claude', 'codex', 'muse'], run: { mode: 'quick' } });
+    expect(usageError('claude', '-t', 'codex')).toContain('Name the agent once');
+    expect(usageError('claude', 'nosuchagent')).toContain('Unknown command or agent "nosuchagent"');
   });
 });
 
@@ -127,7 +136,7 @@ describe('rejected command lines', () => {
   it('rejects unknown flags and commands', () => {
     expect(usageError('--bogus')).toBe("Unknown option '--bogus'.");
     expect(usageError('demo', '-x')).toContain("Unknown option '-x'");
-    expect(usageError('frobnicate')).toContain('Unknown command "frobnicate"');
+    expect(usageError('frobnicate')).toContain('Unknown command or agent "frobnicate"');
     expect(usageError('demo', 'extra', 'junk')).toContain('Unexpected argument "extra"');
   });
 
