@@ -24,6 +24,7 @@ export function swiftBarPlugin(command: string): string {
 # <xbar.author>Krutrim Mulyankan</xbar.author>
 # <xbar.desc>Tokens per second and time to first token for your AI agent CLIs.</xbar.desc>
 # <xbar.abouturl>https://krutrimmulyankan.in/speedtest</xbar.abouturl>
+# SPDX-License-Identifier: MIT. Copyright (c) 2026 Krutrim Mulyankan.
 # <swiftbar.hideAbout>true</swiftbar.hideAbout>
 # <swiftbar.hideRunInTerminal>true</swiftbar.hideRunInTerminal>
 # <swiftbar.hideDisablePlugin>false</swiftbar.hideDisablePlugin>
@@ -56,6 +57,7 @@ function shellQuote(value: string): string {
 
 /** The Windows notification-area icon. Windows PowerShell 5.1 compatible, no dependencies. */
 export const TRAY_SCRIPT = String.raw`# KM AI Speed Test: notification-area icon. Written by "speedtest-ai menubar install".
+# SPDX-License-Identifier: MIT. Copyright (c) 2026 Krutrim Mulyankan.
 param([switch]$SelfTest)
 
 $ErrorActionPreference = 'Stop'

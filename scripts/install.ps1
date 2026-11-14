@@ -1,4 +1,6 @@
 # KM AI Speed Test (speedtest-ai) installer for Windows.
+# SPDX-License-Identifier: MIT. Copyright (c) 2026 Krutrim Mulyankan.
+# https://krutrimmulyankan.in/speedtest/LICENSE.txt
 #
 #   irm https://krutrimmulyankan.in/speedtest/install.ps1 | iex
 #

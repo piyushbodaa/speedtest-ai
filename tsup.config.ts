@@ -1,7 +1,10 @@
 import { chmod } from 'node:fs/promises';
 import { defineConfig } from 'tsup';
 
-const shebang = { js: '#!/usr/bin/env node' };
+// The licence notice travels with the standalone bundle, which is distributed without the repo.
+const shebang = {
+  js: '#!/usr/bin/env node\n// KM AI Speed Test (speedtest-ai). MIT License. Copyright (c) 2026 Krutrim Mulyankan.\n// https://krutrimmulyankan.in/speedtest/LICENSE.txt',
+};
 
 export default defineConfig([
   {

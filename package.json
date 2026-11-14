@@ -1,6 +1,6 @@
 {
   "name": "speedtest-ai",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Live speedometer CLI and streaming benchmark engine for AI models and agent harnesses.",
   "type": "module",
   "bin": {
@@ -18,7 +18,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
@@ -50,5 +51,11 @@
     "tsx": "^4.19.0",
     "typescript": "^5.8.0",
     "vitest": "^3.0.0"
+  },
+  "author": "Krutrim Mulyankan (https://krutrimmulyankan.in)",
+  "homepage": "https://krutrimmulyankan.in/speedtest",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/piyushbodaa/speedtest-ai.git"
   }
 }

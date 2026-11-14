@@ -5,6 +5,7 @@
 //   speedtest-ai.mjs   the same program as an ES module (the filename older installers fetch)
 //   install.sh         scripts/install.sh with the bundle's SHA-256 pinned
 //   install.ps1        scripts/install.ps1 (Windows) with the same pin
+//   LICENSE.txt        the MIT licence, published beside the downloads
 //   checksums.txt      SHA-256 of the files above
 //
 // Deploy by copying the whole folder to the website in one step, so install.sh and the bundle it
@@ -121,6 +122,9 @@ const psSource = fs.readFileSync(path.join(root, 'scripts', 'install.ps1'), 'utf
 const psPin = `$pinnedSha256 = '${SHA_PLACEHOLDER}'`;
 if (psSource.split(psPin).length !== 2) fail(`scripts/install.ps1 must contain the line ${psPin} exactly once`);
 fs.writeFileSync(outputs.windowsInstaller, psSource.replace(psPin, `$pinnedSha256 = '${sha256(outputs.cjs)}'`));
+
+outputs.license = path.join(releaseDir, 'LICENSE.txt');
+fs.copyFileSync(path.join(root, 'LICENSE'), outputs.license);
 
 const checksumLines = Object.values(outputs).map((file) => `${sha256(file)}  ${path.basename(file)}`);
 fs.writeFileSync(path.join(releaseDir, 'checksums.txt'), checksumLines.join('\n') + '\n');
