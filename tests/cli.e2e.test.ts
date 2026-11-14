@@ -50,6 +50,9 @@ interface CliOptions {
   act?: { when?: string | RegExp; do: (child: ChildProcess) => void | Promise<void> };
 }
 
+/** Only node itself: nothing an agent CLI could be found in. */
+const SAFE_PATH = path.dirname(process.execPath);
+
 async function cli(args: string[], options: CliOptions = {}): Promise<CliRun> {
   const home = options.home ?? (await makeTempDir('speedtest-e2e-home-'));
   const started = Date.now();
@@ -57,6 +60,9 @@ async function cli(args: string[], options: CliOptions = {}): Promise<CliRun> {
     cwd: options.cwd ?? home,
     env: {
       ...process.env,
+      // No test may reach the agent CLIs installed on this machine: they cost real money. Tests
+      // that need a CLI put a fake one on a PATH of their own.
+      PATH: SAFE_PATH,
       SPEEDTEST_AI_HOME: home,
       SPEEDTEST_AI_DEMO_TIME_SCALE: '0.15',
       NO_COLOR: '1',
@@ -324,8 +330,8 @@ describe.concurrent('argument validation', () => {
     [['history', '--limit', '0'], '--limit expects a whole number'],
     [['demo', '--profile', 'nosuch'], 'Unknown demo profile "nosuch"'],
     [['run', '-t', 'nosuch'], 'Unknown target "nosuch"'],
-    [['frobnicate'], 'Unknown command "frobnicate"'],
-    [['--json'], 'Nothing to run'],
+    [['frobnicate'], 'Unknown command or agent "frobnicate"'],
+    [['claude', '-t', 'codex'], 'Name the agent once'],
   ];
 
   it('exits 2 with a message on stderr and nothing on stdout', { timeout: 60_000 }, async () => {
@@ -339,6 +345,18 @@ describe.concurrent('argument validation', () => {
     });
   });
 
+  it('tests everything with no arguments, and one agent when it is named', { timeout: 30_000 }, async () => {
+    // On the isolated PATH nothing is installed, so the bare command reports that and exits 2.
+    const bare = await cli(['--plain', '--no-history']);
+    expect(bare.code).toBe(2);
+    expect(`${bare.stdout}${bare.stderr}`).toMatch(/No AI agent CLI/i);
+
+    const named = await cli(['claude', '--json', '--no-history']);
+    expect(named.code).toBe(1);
+    expect(named.stdout).toContain('claude');
+    expect(`${named.stdout}${named.stderr}`).toMatch(/not installed|not found/i);
+  });
+
   it('prints help that fits 80 columns and documents the flags', { timeout: 20_000 }, async () => {
     const help = await cli(['--help']);
     expect(help.code).toBe(0);
@@ -349,7 +367,7 @@ describe.concurrent('argument validation', () => {
     expect(help.stdout).not.toMatch(/RFC 3550|5-8s/);
 
     const version = await cli(['--version']);
-    expect(version.stdout.trim()).toBe('speedtest-ai v0.8.0');
+    expect(version.stdout.trim()).toBe('speedtest-ai v0.9.0');
   });
 });
 

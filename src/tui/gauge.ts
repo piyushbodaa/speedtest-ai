@@ -3,6 +3,9 @@ import type { BenchmarkMode, GaugeTick, PhaseId, PhaseResult } from '../types.js
 import { c, colorByTps, displayWidth, sanitizeInline, truncateAnsi } from './ansi.js';
 import { brandPaint, kmAccent, PRODUCT_TAG } from './brand.js';
 
+/** A wait shorter than this is ordinary start-up and keeps the speed dial. */
+const WAIT_DIAL_AFTER_MS = 5000;
+
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
 /** The live frame always has this many lines, so a redraw can move up by a known amount. */
@@ -59,7 +62,9 @@ export function renderBigNumber(text: string): string[] {
 export function renderSpeedometer(
   tps: number | null,
   maxScale = DIAL_MAX_TPS,
-  accent?: (s: string) => string
+  accent?: (s: string) => string,
+  /** Whole numbers only (a count of seconds), instead of one decimal below 100. */
+  wholeNumbers = false
 ): string[] {
   const value = typeof tps === 'number' && Number.isFinite(tps) ? Math.max(0, tps) : null;
   const ratio = value === null ? 0 : Math.min(1, value / maxScale);
@@ -84,7 +89,7 @@ export function renderSpeedometer(
     }
   }
 
-  const number = value === null ? '-' : value >= 100 ? value.toFixed(0) : value.toFixed(1);
+  const number = value === null ? '-' : wholeNumbers || value >= 100 ? value.toFixed(0) : value.toFixed(1);
   const big = renderBigNumber(number);
   const bigWidth = displayWidth(big[0]);
   const bigLeft = Math.floor((DIAL_COLS - bigWidth) / 2);
@@ -127,6 +132,10 @@ export interface LiveDashboardState {
   phaseIndex: number;
   phaseTotal: number;
   phaseLabel: string;
+  /** How long this target took to its first token last time, from history. */
+  expectedTtftMs?: number;
+  /** A key skips this target (inside `all` / `compare`). */
+  canSkip?: boolean;
   /** Set while `--runs N` is repeating the download. */
   repeat?: { run: number; of: number };
   tick?: GaugeTick;
@@ -157,9 +166,15 @@ function statusText(state: LiveDashboardState): string {
     return `answering… ${seconds}`;
   }
   if (tick.stage === 'booting') return `starting the CLI… ${seconds}`;
-  if (tick.stage === 'thinking') return `model is thinking… ${seconds}`;
-  if (tick.elapsedMs >= 20_000) return `still waiting for the first token… ${seconds}`;
-  return `waiting for the first token… ${seconds}`;
+  const what = tick.stage === 'thinking' ? 'model is thinking' : 'waiting for first token';
+  if (tick.elapsedMs < 10_000) return `${what}… ${seconds}`;
+  // A long silence is normally a model reasoning before it answers: say how long it took last
+  // time, and offer the way out.
+  const parts = [what];
+  if (state.expectedTtftMs && state.expectedTtftMs >= 10_000) parts.push(`took ${(state.expectedTtftMs / 1000).toFixed(0)}s last time`);
+  else parts.push(seconds);
+  if (state.canSkip) parts.push('press s to skip');
+  return parts.join(' · ');
 }
 
 const STEP_NAMES: Record<PhaseId, string> = {
@@ -206,9 +221,21 @@ export function renderDashboardFrame(state: LiveDashboardState, boxWidth = MAX_F
   if (download) dialTps = download.decodeTps ?? download.e2eTps;
   else if (live) dialTps = state.tick?.currentTps ?? 0;
 
-  const dial = renderSpeedometer(dialTps, DIAL_MAX_TPS, accent);
-  const scaleGap = DIAL_COLS - 1 - 12 - 4;
-  const scale = `${c.gray('0')}${' '.repeat(Math.ceil(scaleGap / 2))}${c.dim('tokens / sec')}${' '.repeat(Math.floor(scaleGap / 2))}${c.gray(`${DIAL_MAX_TPS}+`)}`;
+  // Before the first token there is no speed to show. A dial stuck on 0.0 looks broken, so while
+  // a target makes the user wait the dial counts the wait instead, against how long it took last
+  // time when that is known.
+  const tick = state.tick;
+  const waiting = live && !!tick && tick.stage !== 'streaming' && tick.tokensGenerated === 0 && tick.elapsedMs >= WAIT_DIAL_AFTER_MS;
+  const waitSeconds = waiting ? tick!.elapsedMs / 1000 : 0;
+  const expectedSeconds = state.expectedTtftMs ? state.expectedTtftMs / 1000 : 0;
+  const waitScale = Math.max(30, Math.ceil(Math.max(expectedSeconds, waitSeconds * 1.25) / 30) * 30);
+  const dial = waiting
+    ? renderSpeedometer(waitSeconds, waitScale, c.gray, true)
+    : renderSpeedometer(dialTps, DIAL_MAX_TPS, accent);
+  const scaleLabel = waiting ? 'seconds waiting' : 'tokens / sec';
+  const scaleMax = waiting ? `${waitScale}s` : `${DIAL_MAX_TPS}+`;
+  const scaleGap = Math.max(2, DIAL_COLS - 1 - scaleLabel.length - scaleMax.length);
+  const scale = `${c.gray('0')}${' '.repeat(Math.ceil(scaleGap / 2))}${c.dim(scaleLabel)}${' '.repeat(Math.floor(scaleGap / 2))}${c.gray(scaleMax)}`;
 
   const peak = download ? download.peakTps : live ? (state.tick?.peakTps ?? 0) : 0;
   const tokens = download ? download.outputTokens : live ? (state.tick?.tokensGenerated ?? 0) : 0;

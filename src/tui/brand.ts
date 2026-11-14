@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { rgb } from './ansi.js';
 
 type Rgb = readonly [number, number, number];
@@ -40,4 +41,14 @@ export function brandRgb(targetId: string | undefined): Rgb | undefined {
 export function brandPaint(targetId: string | undefined): ((s: string) => string) | undefined {
   const value = brandRgb(targetId);
   return value ? rgb(value[0], value[1], value[2]) : undefined;
+}
+
+/**
+ * The name this program was started under, for messages that tell the user what to type next.
+ * The installer adds "speedtest" unless another program already owns that name, so someone who
+ * typed "speedtest-ai" is told "speedtest-ai".
+ */
+export function commandName(argv1: string | undefined = process.argv[1]): string {
+  const base = path.basename(argv1 ?? '').replace(/\.(cjs|mjs|js|cmd)$/i, '');
+  return ['speedtest', 'speedtest-ai', 'kmspeed', 'aispeed'].includes(base) ? base : 'speedtest';
 }

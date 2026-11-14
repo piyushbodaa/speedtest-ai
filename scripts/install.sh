@@ -24,6 +24,9 @@ COUNTDOWN_SECONDS=5
 
 TMP_DIR=""
 NODE_FROM_FALLBACK=0
+# The name to show in messages: "speedtest" once that short name is ours, else "speedtest-ai".
+CMD="speedtest-ai"
+OTHER_SPEEDTEST=""
 
 say() { printf '%s\n' "$*"; }
 warn() { printf '%s\n' "$*" >&2; }
@@ -138,6 +141,26 @@ install_bundle() {
   mv -f "$staged" "$2/speedtest-ai"
   ln -sf "speedtest-ai" "$2/aispeed"
   ln -sf "speedtest-ai" "$2/kmspeed"
+  link_short_name "$2"
+}
+
+# The everyday command is "speedtest". Ookla's internet speed test uses the same name, so the
+# short name is only added when nothing else owns it; "speedtest-ai" always works.
+link_short_name() {
+  short="$1/speedtest"
+  if [ -L "$short" ] && [ "$(readlink "$short")" = "speedtest-ai" ]; then
+    CMD="speedtest"
+    return 0
+  fi
+  other=$(command -v speedtest 2>/dev/null || true)
+  if [ -e "$short" ] || [ -L "$short" ]; then
+    OTHER_SPEEDTEST="$short"
+  elif [ -n "$other" ]; then
+    OTHER_SPEEDTEST="$other"
+  else
+    ln -s "speedtest-ai" "$short"
+    CMD="speedtest"
+  fi
 }
 
 has_terminal() {
@@ -171,7 +194,7 @@ maybe_run_speedtest() {
   if ! has_terminal; then
     say ""
     say "No interactive terminal, so no speed test was started. Run it yourself with:"
-    say "  speedtest-ai all"
+    say "  $CMD"
     return 0
   fi
 
@@ -180,7 +203,7 @@ maybe_run_speedtest() {
   say ""
   if [ "$targets_known" = "1" ] && [ -z "$targets" ]; then
     say "No AI agent CLI was detected, so there is nothing to speed test yet."
-    say "Install and log in to one (claude, codex, ...), then run: speedtest-ai all"
+    say "Install and log in to one (claude, codex, ...), then run: $CMD"
     return 0
   fi
   if [ "$targets_known" = "1" ]; then
@@ -202,7 +225,7 @@ maybe_run_speedtest() {
   say ""
   if [ "$skip" = "1" ]; then
     trap 'cleanup; exit 130' INT
-    say "Skipped. Run it any time with: speedtest-ai all"
+    say "Skipped. Run it any time with: $CMD"
     return 0
   fi
 
@@ -214,9 +237,9 @@ maybe_run_speedtest() {
   trap 'cleanup; exit 130' INT
   case "$status" in
     0) ;;
-    130) say "Speed test interrupted. Run it again with: speedtest-ai all" ;;
-    2) say "Nothing could be benchmarked. See: speedtest-ai detect" ;;
-    *) say "The speed test did not complete (exit code $status). Details: speedtest-ai detect" ;;
+    130) say "Speed test interrupted. Run it again with: $CMD" ;;
+    2) say "Nothing could be benchmarked. See: $CMD detect" ;;
+    *) say "The speed test did not complete (exit code $status). Details: $CMD detect" ;;
   esac
 }
 
@@ -255,7 +278,13 @@ main() {
 
   install_bundle "$bundle" "$install_dir"
   say ""
-  say "Installed KM AI Speed Test ($version) to $install_dir/speedtest-ai (aliases: kmspeed, aispeed)"
+  say "Installed KM AI Speed Test ($version) to $install_dir/speedtest-ai"
+  if [ "$CMD" = "speedtest" ]; then
+    say "Run it as: speedtest   (also: speedtest-ai, kmspeed)"
+  else
+    say "Another program named speedtest is already installed ($OTHER_SPEEDTEST),"
+    say "so that short name was left alone. Run this one as: speedtest-ai   (also: kmspeed)"
+  fi
 
   # The same file can still fail from its final place: a package.json with "type": "module" in a
   # parent directory makes Node read an extensionless script as an ES module.
@@ -276,11 +305,11 @@ main() {
 
   say ""
   say "Commands:"
-  say "  speedtest-ai all          speed test every installed AI agent CLI and compare"
-  say "  speedtest-ai detect       list which CLIs and APIs were found"
-  say "  speedtest-ai run -t ID    test one target (for example: -t claude)"
-  say "  speedtest-ai demo         simulated run, no model is called"
-  say "  speedtest-ai --help       everything else"
+  say "  $CMD               speed test every installed AI agent CLI and compare"
+  say "  $CMD claude        test one agent (also: codex, agy, grok, muse, ...)"
+  say "  $CMD detect        list which CLIs and APIs were found"
+  say "  $CMD demo          simulated run, no model is called"
+  say "  $CMD --help        everything else"
 
   if [ "$on_path" = "0" ]; then
     say ""
