@@ -14,7 +14,13 @@ import {
   renderDetectTable,
   renderHistoryTable,
 } from '../src/tui/dashboard.js';
-import { FRAME_HEIGHT, type LiveDashboardState, renderDashboardFrame } from '../src/tui/gauge.js';
+import {
+  FRAME_HEIGHT,
+  type LiveDashboardState,
+  renderBigNumber,
+  renderDashboardFrame,
+  renderSpeedometer,
+} from '../src/tui/gauge.js';
 import { buildPickerItems, renderPickerLines } from '../src/tui/prompt.js';
 import { makeBufferedResult, makePhase, makeResult, makeTarget } from './helpers/make-result.js';
 
@@ -263,29 +269,47 @@ describe('live gauge frame', () => {
 
   for (const width of [39, 45, 59, 68, 79, 119]) {
     for (const [name, state] of Object.entries(states)) {
-      it(`${name} is a closed ${FRAME_HEIGHT}-line box at width ${width}`, () => {
+      it(`${name} is ${FRAME_HEIGHT} lines that fit width ${width}`, () => {
         const frame = renderDashboardFrame(state, width);
-        expect(frame.split('\n')).toHaveLength(FRAME_HEIGHT);
-        expectClosedBox(frame, Math.min(width, 68));
+        const lines = frame.split('\n');
+        expect(lines).toHaveLength(FRAME_HEIGHT);
+        for (const line of lines) {
+          expect(displayWidth(stripAnsi(line)), `too wide: ${JSON.stringify(stripAnsi(line))}`).toBeLessThanOrEqual(
+            Math.min(width, 68)
+          );
+        }
         expect(frame).not.toContain('\x1b[2J');
       });
     }
   }
 
-  it('scales the bar and sparkline instead of clipping them', () => {
-    const narrow = stripAnsi(renderDashboardFrame(states.streaming, 39));
-    const wide = stripAnsi(renderDashboardFrame(states.streaming, 68));
-    const barCells = (frame: string) => (frame.split('\n')[7].match(/[█░]/g) ?? []).length;
-    expect(barCells(narrow)).toBeLessThan(barCells(wide));
-    expect(narrow.split('\n')[7]).toContain('Peak 175 tok/s');
-    expect(narrow.split('\n')[8]).toContain('4321 tok');
+  it('fills the dial in proportion to the speed and shows the reading in large digits', () => {
+    const filled = (tps: number) => {
+      const lines = renderSpeedometer(tps);
+      expect(lines).toHaveLength(9);
+      for (const line of lines) expect(displayWidth(stripAnsi(line))).toBe(36);
+      // Coloured arc cells are everything painted in a non-gray colour.
+      return lines.join('').split('\x1b[90m').length;
+    };
+    expect(filled(0)).toBeGreaterThan(filled(100));
+    expect(filled(100)).toBeGreaterThan(filled(200));
+    expect(renderBigNumber('42.5')).toEqual(['█ █ ▀▀█   █▀▀', '▀▀█ █▀▀   ▀▀█', '  ▀ ▀▀▀ ▀ ▀▀▀']);
+  });
+
+  it('shows ping, peak and tokens under the dial, and the steps in standard mode', () => {
+    const frame = stripAnsi(renderDashboardFrame(states.streaming, 68));
+    expect(frame).toContain('Peak 175');
+    expect(frame).toContain('Tokens 4321');
+    expect(frame).toContain('tokens / sec');
+    expect(frame).toContain('✓ Ping');
+    expect(frame).toContain('● Speed');
+    expect(frame).toContain('○ Tool use');
   });
 
   it('shows the buffered and failed states in words', () => {
     const frame = stripAnsi(renderDashboardFrame(states.buffered, 68));
     expect(frame).toContain('n/a (buffered)');
-    expect(frame).toContain('34.5 tok/s (E2E)');
-    expect(frame).toMatch(/UPLOAD: failed/);
+    expect(frame).toContain('✗ Large prompt');
   });
 });
 
