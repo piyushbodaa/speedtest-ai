@@ -43,6 +43,30 @@ jobs:
           ./release/install.ps1
           & (Join-Path $env:INSTALL_DIR 'speedtest-ai.cmd') --version
           & (Join-Path $env:INSTALL_DIR 'speedtest-ai.cmd') demo --quick --plain --no-history
+      - name: Windows tray script builds its menu
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP 'speedtest-ai-install'
+          & (Join-Path $dir 'speedtest-ai.cmd') menubar install
+          $out = powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $dir 'speedtest-ai-tray.ps1') -SelfTest
+          $out
+          if (-not ($out -contains 'SELFTEST-OK')) { throw 'tray self-test did not finish' }
+          if (-not ($out -match 'KM AI Speed Test')) { throw 'tray menu has no title item' }
+          & (Join-Path $dir 'speedtest-ai.cmd') menubar uninstall
+      - name: macOS menu-bar plugin prints a menu
+        if: runner.os == 'macOS'
+        run: |
+          export HOME="$RUNNER_TEMP/mbhome"
+          mkdir -p "$HOME"
+          node dist/cli.cjs menubar install
+          plugin="$HOME/Library/Application Support/SwiftBar/Plugins/km-ai-speedtest.30m.sh"
+          bash -n "$plugin"
+          env -i HOME="$HOME" PATH="/usr/bin:/bin:$(dirname "$(command -v node)")" "$plugin" | tee menu.txt
+          head -1 menu.txt | grep -q '⚡'
+          grep -q 'KM AI Speed Test' menu.txt
+          node dist/cli.cjs menubar uninstall
+          test ! -e "$plugin"
       - name: POSIX installer installs and runs
         if: runner.os != 'Windows'
         run: |

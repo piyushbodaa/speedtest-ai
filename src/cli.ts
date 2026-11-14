@@ -21,7 +21,9 @@ import {
 import { renderSvgCard } from './core/card.js';
 import { detectTargets } from './core/detect.js';
 import { InterruptedError } from './core/errors.js';
-import { clearHistory, readHistory } from './core/history.js';
+import { clearHistory, loadHistory, readHistory } from './core/history.js';
+import { buildMenuModel, renderSwiftBarMenu } from './core/menu.js';
+import { installMenubar, uninstallMenubar } from './core/menubar.js';
 import { compareResultsByRank } from './core/metrics.js';
 import { DEFAULT_PHASE_TIMEOUT_MS, MAX_RUNS, runSpeedtestRepeated } from './core/runner.js';
 import { c, sanitizeInline, truncateAnsi, wrapText } from './tui/ansi.js';
@@ -69,6 +71,8 @@ USAGE
   speedtest-ai detect [--json]        List what is installed and usable
   speedtest-ai history                Show saved results (--limit N, --clear)
   speedtest-ai update                 Install the latest version over this one
+  speedtest-ai menubar install        Menu-bar item (macOS) or tray icon (Windows)
+  speedtest-ai menu [--swiftbar]      Agents and last results, as data for those
 
   "all", "run" and "compare" send real prompts and spend real model tokens.
 
@@ -560,6 +564,20 @@ async function dispatch(command: ParsedCommand): Promise<number> {
       return EXIT_OK;
     case 'update':
       return runUpdate();
+    case 'menubar': {
+      const self = path.resolve(process.argv[1] ?? 'speedtest-ai');
+      const outcome = command.action === 'install' ? installMenubar(self) : uninstallMenubar(self);
+      out(outcome.lines.join('\n') + '\n');
+      return outcome.ok ? EXIT_OK : 1;
+    }
+    case 'menu': {
+      const model = buildMenuModel(await detectTargets(), await loadHistory(), {
+        version: `v${VERSION}`,
+        command: path.resolve(process.argv[1] ?? 'speedtest-ai'),
+      });
+      out(command.format === 'swiftbar' ? renderSwiftBarMenu(model) : JSON.stringify(model, null, 2) + '\n');
+      return EXIT_OK;
+    }
     case 'detect': {
       const targets = await detectTargets();
       if (command.json) {
