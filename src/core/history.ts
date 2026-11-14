@@ -127,7 +127,19 @@ function withoutResponseText(result: SpeedtestResult): Record<string, unknown> {
   return { ...(result as unknown as Record<string, unknown>), phases };
 }
 
-export async function appendHistory(result: SpeedtestResult): Promise<void> {
+let writeChain: Promise<void> = Promise.resolve();
+
+/**
+ * Saves are read-modify-write on one file. In a parallel run several finish close together, so
+ * they are queued; otherwise the later save would drop the earlier result.
+ */
+export function appendHistory(result: SpeedtestResult): Promise<void> {
+  const next = writeChain.then(() => appendHistoryNow(result));
+  writeChain = next.catch(() => {});
+  return next;
+}
+
+async function appendHistoryNow(result: SpeedtestResult): Promise<void> {
   const dir = getHistoryDir();
   await fs.mkdir(dir, { recursive: true, mode: 0o700 });
   // A folder made by an older version was world-readable.

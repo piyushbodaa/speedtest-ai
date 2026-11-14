@@ -25,6 +25,10 @@ export interface RunOptions {
   runs: number;
   asConfigured: boolean;
   allowPermissionBypass: boolean;
+  /** Run the targets of `all` / `compare` at the same time. */
+  parallel: boolean;
+  /** Do not write the shareable result image. */
+  noCard: boolean;
   noHistory: boolean;
   output: CliOutputMode;
   cardPath?: string;
@@ -38,6 +42,7 @@ export type ParsedCommand =
   | { kind: 'help' }
   | { kind: 'version' }
   | { kind: 'update' }
+  | { kind: 'share' }
   | { kind: 'menu'; format: 'json' | 'swiftbar' }
   | { kind: 'menubar'; action: 'install' | 'uninstall' }
   | { kind: 'detect'; json: boolean }
@@ -48,7 +53,7 @@ export type ParsedCommand =
   /** `pick`: the interactive picker on a terminal, the overview otherwise. */
   | { kind: 'default'; run: RunOptions };
 
-const COMMANDS = ['all', 'run', 'demo', 'compare', 'detect', 'history', 'update', 'menu', 'menubar', 'pick', 'help'] as const;
+const COMMANDS = ['all', 'run', 'demo', 'compare', 'detect', 'history', 'update', 'menu', 'menubar', 'pick', 'share', 'help'] as const;
 type CommandName = (typeof COMMANDS)[number];
 
 function looksLikeCardPath(token: string): boolean {
@@ -126,6 +131,8 @@ export function parseCliArgs(rawArgv: string[]): ParsedCommand {
         runs: { type: 'string' },
         'as-configured': { type: 'boolean' },
         'allow-permission-bypass': { type: 'boolean' },
+        parallel: { type: 'boolean', short: 'p' },
+        'no-card': { type: 'boolean' },
         'include-apis': { type: 'boolean' },
         cmd: { type: 'string' },
         'base-url': { type: 'string' },
@@ -183,6 +190,7 @@ export function parseCliArgs(rawArgv: string[]): ParsedCommand {
   let command = first as CommandName | undefined;
   if (command === 'help') return { kind: 'help' };
   if (command === 'update') return { kind: 'update' };
+  if (command === 'share') return { kind: 'share' };
   if (command === 'menu') return { kind: 'menu', format: values.swiftbar ? 'swiftbar' : 'json' };
   if (values.swiftbar) throw new UsageError('--swiftbar only applies to "menu".');
 
@@ -230,6 +238,8 @@ export function parseCliArgs(rawArgv: string[]): ParsedCommand {
     runs: values.runs === undefined ? 1 : parseIntegerInRange('--runs', values.runs, 1, MAX_RUNS),
     asConfigured: Boolean(values['as-configured']),
     allowPermissionBypass: Boolean(values['allow-permission-bypass']),
+    parallel: Boolean(values.parallel),
+    noCard: Boolean(values['no-card']),
     noHistory: Boolean(values['no-history']),
     output: values.jsonl ? 'jsonl' : values.json ? 'json' : values.plain ? 'plain' : 'tui',
     cardPath: values.card,

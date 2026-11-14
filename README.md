@@ -5,7 +5,7 @@ agent CLIs installed on your machine (`claude`, `codex`, `agy`, `grok`, `muse`, 
 the same prompt, and reports a time to first token and a tokens-per-second figure that can be
 compared between them.
 
-Version 0.9.0. Linux, macOS and Windows. Node.js 20 or newer, no runtime dependencies.
+Version 0.10.0. Linux, macOS and Windows. Node.js 20 or newer, no runtime dependencies.
 
 > `all`, `run` and `compare` call the real CLIs with your accounts. They send real prompts and
 > **spend real model tokens**. `demo` and `detect` do not call any model.
@@ -281,6 +281,30 @@ goes to (`| head -1`) stops the run quietly.
 | 143 | terminated |
 
 The codes are the same with `--json` and `--jsonl`.
+
+### Faster: test them all at once
+
+```sh
+speedtest --parallel      # or -p
+```
+
+Runs every agent at the same time instead of one after another, so the whole test takes about as
+long as the slowest agent rather than the sum of them. The live view shows one line per agent. The
+agents share your machine and network while they run, so each figure can read a little lower than
+when it is tested alone; use the default sequential run when you want the most accurate numbers.
+
+### Share the result
+
+After a run the leaderboard is saved as an image (1200x675, sized for posting):
+
+```sh
+speedtest share           # copies the last result card to the clipboard
+```
+
+The image holds agent names, model names and the figures, and nothing about your machine or
+account. It is written to `~/.local/share/speedtest-ai/cards/` (the last 20 are kept). A PNG needs
+`rsvg-convert` or ImageMagick to be installed; without one the card is saved as SVG. `--no-card`
+turns it off.
 
 ### Terminal
 

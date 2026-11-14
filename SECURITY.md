@@ -41,6 +41,9 @@ is visible to other processes on the machine while the test runs, so prefer the 
 
 - Results: `~/.local/share/speedtest-ai/history.json`, readable by you only. It holds the timings,
   token counts and model names, not the text the model wrote.
+- Result cards: `~/.local/share/speedtest-ai/cards/`, an image of the leaderboard written after each
+  run. It contains agent names, model names and figures only. Nothing is uploaded; `speedtest share`
+  copies the image to your clipboard and you decide where it goes. `--no-card` turns it off.
 - The menu-bar plugin (macOS), tray script (Windows) and Omarchy plugin only read that file through
   `speedtest menu` and start tests. They make no network requests of their own.
 
