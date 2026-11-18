@@ -1,3 +1,4 @@
+import { limitResponseBody } from '../adapters/utils/response-limit.js';
 import { spawn } from 'node:child_process';
 import { constants as fsConstants } from 'node:fs';
 import fs from 'node:fs/promises';
@@ -454,9 +455,12 @@ export async function inspectHarness(entry: HarnessEntry, options: DetectOptions
 }
 
 async function fetchJson(url: string): Promise<unknown> {
-  const res = await fetch(url, { signal: AbortSignal.timeout(LOCAL_HTTP_TIMEOUT_MS) });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  const res = await fetch(url, { signal: AbortSignal.timeout(LOCAL_HTTP_TIMEOUT_MS), redirect: 'error' });
+  if (!res.ok || !res.body) {
+    await res.body?.cancel();
+    throw new Error(`HTTP ${res.status}`);
+  }
+  return new Response(limitResponseBody(res.body, 4 * 1024 * 1024)).json();
 }
 
 function names(list: unknown, key: string): string[] {

@@ -17,6 +17,7 @@ import type { AdapterInvokeRequest, AdapterStreamChunk, SpeedtestAdapter } from 
 
 interface Scripted {
   status?: number;
+  location?: string;
   body?: string;
   /** Written one by one with a short pause, then the response ends. */
   frames?: string[];
@@ -42,7 +43,7 @@ beforeAll(async () => {
     req.on('end', async () => {
       seen.push({ url: req.url ?? '', headers: req.headers, body: raw ? JSON.parse(raw) : undefined });
       const script = next.shift() ?? { status: 500, body: 'no script' };
-      res.writeHead(script.status ?? 200, { 'Content-Type': 'text/event-stream' });
+      res.writeHead(script.status ?? 200, { 'Content-Type': 'text/event-stream', ...(script.location ? { Location: script.location } : {}) });
       if (script.body !== undefined) {
         res.end(script.body);
         return;
@@ -145,6 +146,20 @@ describe('OpenAI-compatible provider', () => {
     expect(kinds(chunks)).toEqual(['start', 'start', 'init', 'text', 'terminal']);
     expect(seen[1].body.max_tokens).toBeUndefined();
     expect(seen[1].body.stream_options).toBeUndefined();
+  });
+
+  it('stops at a redirect without forwarding the request', async () => {
+    script({ status: 307, location: 'https://other.invalid/api', body: '' });
+    await expect(collect(openai())).rejects.toThrow();
+    expect(seen).toHaveLength(1);
+  });
+
+  it('preserves the POST and credentials on a same-origin 307', async () => {
+    script({ status: 307, location: '/canonical', body: '' }, { frames: [sse('[DONE]')] });
+    await collect(openai());
+    expect(seen[1].url).toBe('/canonical');
+    expect(seen[1].headers.authorization).toBe('Bearer sk-test');
+    expect(seen[1].body).toEqual(seen[0].body);
   });
 
   it('classifies HTTP failures', async () => {

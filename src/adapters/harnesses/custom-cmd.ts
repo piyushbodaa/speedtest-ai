@@ -1,16 +1,11 @@
 import type { AdapterInvokeRequest, AdapterStreamChunk, SpeedtestAdapter } from '../../types.js';
 import { runTextHarness } from './run-ndjson-harness.js';
 
-function shellQuote(arg: string): string {
-  return `'${arg.replace(/'/g, `'\\''`)}'`;
-}
-
-/** `{prompt}` is replaced by the shell-quoted prompt; without it the prompt is appended. */
-export function buildCustomCommandLine(cmdTemplate: string, prompt: string): string {
-  const quotedPrompt = shellQuote(prompt);
+/** The prompt travels in the child environment, separate from the command's source. */
+export function buildCustomCommandLine(cmdTemplate: string): string {
   return cmdTemplate.includes('{prompt}')
-    ? cmdTemplate.replaceAll('{prompt}', quotedPrompt)
-    : `${cmdTemplate} ${quotedPrompt}`;
+    ? cmdTemplate.replaceAll('{prompt}', '"$SPEEDTEST_PROMPT"')
+    : cmdTemplate + ' "$SPEEDTEST_PROMPT"';
 }
 
 /**
@@ -29,7 +24,7 @@ export function createCustomCmdAdapter(cmdTemplate: string): SpeedtestAdapter {
         binaryPath: 'sh',
         label: 'custom command',
         req,
-        buildArgs: () => ['-c', buildCustomCommandLine(cmdTemplate, req.prompt)],
+        buildArgs: () => ['-c', buildCustomCommandLine(cmdTemplate)],
         env: { SPEEDTEST_PROMPT: req.prompt },
       });
     },

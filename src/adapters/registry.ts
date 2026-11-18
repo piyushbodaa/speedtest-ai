@@ -108,7 +108,8 @@ function resolveProvider(
   const detected = opts.detectedTargets?.find((t) => t.id === entry.id);
   // A key from the environment belongs to the provider's own endpoint. With --base-url the
   // request goes somewhere else, so only a key given on purpose (--api-key) is sent there.
-  const redirected = Boolean(opts.baseUrl) && !sameOrigin(opts.baseUrl, entry.defaultBaseUrl);
+  const overrideUrl = opts.baseUrl || (entry.id === 'openai' ? process.env.OPENAI_BASE_URL : undefined);
+  const redirected = Boolean(overrideUrl) && !sameOrigin(overrideUrl, entry.defaultBaseUrl);
   const apiKey = opts.apiKey || (redirected ? undefined : providerApiKey(entry));
   const tier: SupportTier = 'verified';
 
@@ -145,10 +146,7 @@ function resolveProvider(
           { kind: 'model' }
         );
       }
-      const baseUrl =
-        opts.baseUrl ||
-        (entry.id === 'openai' ? process.env.OPENAI_BASE_URL : undefined) ||
-        entry.defaultBaseUrl;
+      const baseUrl = overrideUrl || entry.defaultBaseUrl;
       return {
         adapter: createOpenAiCompatibleAdapter({
           id: entry.id,

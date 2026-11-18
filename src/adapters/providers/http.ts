@@ -1,3 +1,4 @@
+import { limitResponseBody } from '../utils/response-limit.js';
 import {
   abortErrorFromSignal,
   classifyFailureKind,
@@ -66,7 +67,29 @@ export async function postForStream(
   signal: AbortSignal
 ): Promise<Response> {
   try {
-    return await fetch(url, { method: 'POST', headers: init.headers, body: init.body, signal });
+    let destination = new URL(url);
+    const headers = new Headers(init.headers);
+    let method = 'POST';
+    let body: string | undefined = init.body;
+
+    for (let hops = 0; ; hops++) {
+      const response = await fetch(destination, { method, headers, body, redirect: 'manual', signal });
+      const location = response.headers.get('location');
+      if (!location || ![301, 302, 303, 307, 308].includes(response.status)) return response;
+
+      await response.body?.cancel();
+      const next = new URL(location, destination);
+      if (next.origin !== destination.origin || next.username || next.password) {
+        throw new Error('provider redirect left the configured origin');
+      }
+      if (hops >= 20) throw new Error('too many provider redirects');
+      if (method === 'POST' && [301, 302, 303].includes(response.status)) {
+        method = 'GET';
+        body = undefined;
+        headers.delete('content-type');
+      }
+      destination = next;
+    }
   } catch (err) {
     if (signal.aborted) throw abortErrorFromSignal(signal);
     const cause = err instanceof Error && err.cause instanceof Error ? `: ${err.cause.message}` : '';
@@ -76,8 +99,10 @@ export async function postForStream(
 }
 
 export async function ensureOk(name: string, res: Response): Promise<ReadableStream<Uint8Array>> {
-  if (res.ok && res.body) return res.body;
-  const body = await res.text().catch(() => '');
+  if (res.ok && res.body) return limitResponseBody(res.body, 16 * 1024 * 1024);
+  const body = res.body
+    ? await new Response(limitResponseBody(res.body, 64 * 1024)).text().catch(() => '')
+    : '';
   throw httpFailure(name, res.status, res.statusText, body);
 }
 

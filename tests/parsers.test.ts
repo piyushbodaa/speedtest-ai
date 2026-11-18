@@ -1,3 +1,4 @@
+import { limitResponseBody } from '../src/adapters/utils/response-limit.js';
 import { Readable } from 'node:stream';
 import { describe, expect, it } from 'vitest';
 import { parseAnthropicSseData } from '../src/adapters/providers/anthropic.js';
@@ -102,5 +103,19 @@ describe('Provider & stream parsers', () => {
       frames.push(frame.data);
     }
     expect(frames).toEqual(['{"x":1}', '{"x":2}']);
+  });
+});
+
+describe('provider response size', () => {
+  it('counts decoded bytes across chunks and accepts the exact limit', async () => {
+    const body = () => new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array([65, 66]));
+        controller.enqueue(new Uint8Array([67]));
+        controller.close();
+      },
+    });
+    await expect(new Response(limitResponseBody(body(), 3)).text()).resolves.toBe('ABC');
+    await expect(new Response(limitResponseBody(body(), 2)).text()).rejects.toThrow('byte limit');
   });
 });

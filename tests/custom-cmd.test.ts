@@ -9,14 +9,12 @@ afterAll(() => {
 });
 
 describe('custom command line', () => {
-  it('substitutes every {prompt} with the shell-quoted prompt', () => {
-    expect(buildCustomCommandLine('tool --ask {prompt} --again {prompt}', "it's")).toBe(
-      `tool --ask 'it'\\''s' --again 'it'\\''s'`
-    );
+  it('keeps each placeholder as an argument reference', () => {
+    expect(buildCustomCommandLine('tool --ask {prompt} --again {prompt}')).toBe('tool --ask "$SPEEDTEST_PROMPT" --again "$SPEEDTEST_PROMPT"');
   });
 
-  it('appends the prompt when the template has no placeholder', () => {
-    expect(buildCustomCommandLine('tool -p', 'hello world')).toBe(`tool -p 'hello world'`);
+  it('appends an argument reference when the template has no placeholder', () => {
+    expect(buildCustomCommandLine('tool -p')).toBe('tool -p "$SPEEDTEST_PROMPT"');
   });
 });
 
@@ -31,7 +29,7 @@ describe('custom command adapter', () => {
   });
 
   it('streams stdout as visible text and succeeds on exit code 0', async () => {
-    const prompt = `quote ' and $HOME and "double"`;
+    const prompt = `quote ' and $HOME and "double" and $&`;
     const chunks = await collect(createCustomCmdAdapter('printf %s {prompt}').stream(makeRequest({ prompt })));
 
     expect(chunks[0].kind).toBe('start');

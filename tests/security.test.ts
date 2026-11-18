@@ -76,6 +76,13 @@ describe('API keys', () => {
     expect(await authHeaderFor('myserver:model', { baseUrl: 'https://example.invalid/v1' })).toBeUndefined();
   });
 
+  it('applies the same origin check to OPENAI_BASE_URL', async () => {
+    process.env.OPENAI_BASE_URL = 'https://example.invalid/v1';
+    expect(await authHeaderFor('openai:gpt-test', {})).toBeUndefined();
+    process.env.OPENAI_BASE_URL = 'https://api.openai.com/v1';
+    expect(await authHeaderFor('openai:gpt-test', {})).toBe('Bearer sk-env-openai');
+  });
+
   it('sends a key given on purpose with --api-key to a custom --base-url', async () => {
     expect(await authHeaderFor('myserver:model', { baseUrl: 'https://example.invalid/v1', apiKey: 'sk-explicit' })).toBe('Bearer sk-explicit');
   });
