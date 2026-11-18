@@ -51,7 +51,7 @@ import {
   type TargetInfo,
 } from './types.js';
 
-const VERSION = '0.10.0';
+const VERSION = '0.10.1';
 
 const EXIT_OK = 0;
 const EXIT_FAILED = 1;
